@@ -1,0 +1,25 @@
+{
+  "name": "labi",
+  "version": "0.1.0",
+  "description": "Intent-Based Autonomous Execution Protocol on Base",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "test:gas": "forge test --gas-report",
+    "coverage": "forge coverage",
+    "format": "forge fmt",
+    "lint": "solhint 'src/**/*.sol'"
+  },
+  "devDependencies": {
+    "forge": "^0.1.0"
+  },
+  "keywords": [
+    "blockchain",
+    "solidity",
+    "base",
+    "automation",
+    "intent",
+    "defi"
+  ],
+  "license": "MIT"
+}
