@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+out
+.env
+.env.local
+*.log
+.DS_Store
+forge-cache/
+cache/
+lib/
+coverage/
