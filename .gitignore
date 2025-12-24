@@ -8,5 +8,5 @@ out
 .DS_Store
 forge-cache/
 cache/
-lib/
+/lib/
 coverage/
