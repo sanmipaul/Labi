@@ -1,0 +1,121 @@
+'use client';
+
+import { useState } from 'react';
+import { useAccount, useReadContract } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { CreateFlowModal } from '@/components/CreateFlowModal';
+import { IntentRegistryABI, IntentRegistryAddress } from '@/lib/contracts';
+
+export default function DashboardPage() {
+  const { address, isConnected } = useAccount();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Fetch user flow IDs
+  const { data: userFlowIds } = useReadContract({
+    address: IntentRegistryAddress,
+    abi: IntentRegistryABI,
+    functionName: 'getUserFlows',
+    args: [address as `0x${string}`],
+    query: {
+      enabled: !!address,
+    },
+  });
+
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
+        <h2 className="text-3xl font-bold">Connect Wallet to Continue</h2>
+        <p className="text-gray-600 dark:text-gray-400 max-w-md">
+          To manage your intent vaults and create automation flows, please connect your wallet first.
+        </p>
+        <ConnectButton />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 max-w-6xl">
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your autonomous flows and vault settings.</p>
+        </div>
+        <button 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors shadow-lg shadow-blue-600/20"
+          onClick={() => setIsModalOpen(true)}
+        >
+          + Create New Flow
+        </button>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Stats & Vault Info */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Vault Overview</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-gray-500 dark:text-gray-400">Total Flows</span>
+                <span className="font-bold text-xl">{userFlowIds ? userFlowIds.length : 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-gray-500 dark:text-gray-400">Active</span>
+                <span className="font-bold text-xl text-green-500">-</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-gray-500 dark:text-gray-400">Executed</span>
+                <span className="font-bold text-xl text-blue-500">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Active Flows List */}
+        <div className="lg:col-span-2">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 min-h-[400px]">
+            <h3 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Your Intent Flows</h3>
+            
+            {userFlowIds && userFlowIds.length > 0 ? (
+               <div className="space-y-4">
+                 {userFlowIds.map((flowId) => (
+                   <div key={flowId.toString()} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                     <div className="flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                         </svg>
+                       </div>
+                       <div>
+                         <h4 className="font-medium text-gray-900 dark:text-white">Flow #{flowId.toString()}</h4>
+                         <div className="text-sm text-gray-500">Active • Daily Trigger</div>
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs rounded-full font-medium">
+                         Active
+                       </span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
+                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white">No flows yet</h4>
+                <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-xs">
+                  Create your first automation flow to get started with autonomous execution.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <CreateFlowModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </div>
+  );
+}
