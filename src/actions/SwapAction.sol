@@ -29,6 +29,14 @@ interface IUniswapV2Router {
 contract SwapAction is IAction, ReentrancyGuard {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
+    event SwapExecuted(
+        address indexed vault,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut
+    );
+
     function actionType() external pure returns (uint8) {
         return 1;
     }
@@ -85,6 +93,9 @@ contract SwapAction is IAction, ReentrancyGuard {
         // External call 3: Record spending in vault
         // Protected by nonReentrant modifier
         IIntentVault(vault).recordSpending(tokenIn, amountIn);
+
+        // Emit event for successful swap
+        emit SwapExecuted(vault, tokenIn, tokenOut, amountIn, amounts[1]);
 
         return amounts[1] >= amountOutMin;
     }
