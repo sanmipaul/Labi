@@ -80,6 +80,7 @@ contract IntentVault is IIntentVault {
     }
 
     function resetSpendingTracker(address token) external onlyOwner {
+        require(token != address(0), "IntentVault: token address is zero");
         spentAmounts[token] = 0;
     }
 
