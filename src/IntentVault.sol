@@ -2,6 +2,16 @@ pragma solidity ^0.8.19;
 
 import {IIntentVault} from "./IIntentVault.sol";
 
+/**
+ * @title IntentVault
+ * @notice User-owned vault for managing intent flow executions
+ * @dev Implements spending caps and protocol approval system
+ *
+ * Overflow Protection:
+ * This contract uses Solidity 0.8.19 which includes automatic overflow/underflow
+ * protection. All arithmetic operations will revert on overflow/underflow.
+ * This eliminates the need for SafeMath library.
+ */
 contract IntentVault is IIntentVault {
     address private vaultOwner;
     bool private paused;
