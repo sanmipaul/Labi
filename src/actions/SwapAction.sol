@@ -134,7 +134,7 @@ contract SwapAction is IAction, Ownable {
         require(amountOutMin <= amountIn, "SwapAction: invalid min output");
 
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
-        require(remainingCap >= amountIn, "Spending cap exceeded");
+        require(remainingCap >= amountIn, "SwapAction: spending cap exceeded");
 
         IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
 
