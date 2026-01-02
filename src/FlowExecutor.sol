@@ -66,6 +66,19 @@ contract FlowExecutor is Ownable {
         emit TriggerUnregistered(triggerType, oldTrigger);
     }
 
+    /**
+     * @dev Unregisters an action contract for a specific action type
+     * @param actionType The type identifier for the action to unregister
+     * @notice Only the contract owner can unregister actions
+     */
+    function unregisterAction(uint8 actionType) external onlyOwner {
+        require(actionType > 0, "Invalid action type");
+        address oldAction = address(actionContracts[actionType]);
+        require(oldAction != address(0), "Action not registered");
+        delete actionContracts[actionType];
+        emit ActionUnregistered(actionType, oldAction);
+    }
+
     function executeFlow(uint256 flowId) external returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
