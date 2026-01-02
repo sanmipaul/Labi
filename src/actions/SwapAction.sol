@@ -33,7 +33,14 @@ contract SwapAction is IAction, ReentrancyGuard {
         return 1;
     }
 
-    function execute(address vault, bytes calldata actionData) external returns (bool) {
+    /**
+     * @dev Executes a token swap with reentrancy protection
+     * @param vault The address of the user's intent vault
+     * @param actionData Encoded swap parameters (tokenIn, tokenOut, amountIn, amountOutMin, deadline)
+     * @return bool True if the swap was successful
+     * @notice This function is protected against reentrancy attacks
+     */
+    function execute(address vault, bytes calldata actionData) external nonReentrant returns (bool) {
         require(vault != address(0), "Invalid vault");
         require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
         require(!IIntentVault(vault).isPaused(), "Vault is paused");
