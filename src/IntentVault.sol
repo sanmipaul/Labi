@@ -37,6 +37,7 @@ contract IntentVault is IIntentVault {
     }
 
     function setSpendingCap(address token, uint256 cap) external onlyOwner {
+        require(token != address(0), "IntentVault: token address is zero");
         spendingCaps[token] = cap;
         spentAmounts[token] = 0;
         emit SpendingCapSet(token, cap);
