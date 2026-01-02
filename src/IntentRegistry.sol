@@ -67,6 +67,12 @@ contract IntentRegistry is IIntentRegistry {
         return flows[flowId];
     }
 
+    /**
+     * @notice Get all flow IDs owned by a specific user
+     * @param user The address of the user to query flows for
+     * @return An array of flow IDs owned by the user
+     * @dev Validates that user address is not zero to prevent invalid queries
+     */
     function getUserFlows(address user) external view returns (uint256[] memory) {
         require(user != address(0), "IntentRegistry: user address is zero");
         return userFlows[user];
