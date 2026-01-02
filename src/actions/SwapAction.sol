@@ -40,20 +40,29 @@ interface IUniswapV2Router {
  * - calculatedMinOutput = amountIn * (10000 - minSlippageBps) / 10000
  */
 contract SwapAction is IAction, Ownable {
+    /// @notice Uniswap V2 Router address on Base network
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
-    // Slippage tolerance in basis points (1 bp = 0.01%)
-    // Default: 50 bp = 0.5% minimum slippage protection
+    /// @notice Minimum slippage tolerance in basis points (1 bp = 0.01%)
+    /// @dev Default: 50 bp = 0.5% minimum slippage protection
+    /// @dev Can be modified by owner using setMinSlippage()
     uint256 public minSlippageBps = 50;
 
-    // Maximum allowed slippage: 500 bp = 5%
+    /// @notice Maximum allowed slippage in basis points
+    /// @dev Default: 500 bp = 5% maximum slippage
+    /// @dev Can be modified by owner using setMaxSlippage()
     uint256 public maxSlippageBps = 500;
 
-    // Basis points denominator (100% = 10000 bp)
+    /// @dev Basis points denominator (100% = 10000 bp)
     uint256 private constant BPS_DENOMINATOR = 10000;
 
+    /// @notice Emitted when minimum slippage tolerance is updated
     event MinSlippageUpdated(uint256 oldValue, uint256 newValue);
+
+    /// @notice Emitted when maximum slippage tolerance is updated
     event MaxSlippageUpdated(uint256 oldValue, uint256 newValue);
+
+    /// @notice Emitted when a swap is rejected due to excessive slippage
     event SlippageProtectionTriggered(
         address indexed vault,
         uint256 amountIn,
