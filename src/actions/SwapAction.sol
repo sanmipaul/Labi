@@ -102,9 +102,9 @@ contract SwapAction is IAction, Ownable {
     }
 
     function execute(address vault, bytes calldata actionData) external returns (bool) {
-        require(vault != address(0), "Invalid vault");
-        require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
-        require(!IIntentVault(vault).isPaused(), "Vault is paused");
+        require(vault != address(0), "SwapAction: vault is zero address");
+        require(IIntentVault(vault).isApprovedProtocol(msg.sender), "SwapAction: protocol not approved");
+        require(!IIntentVault(vault).isPaused(), "SwapAction: vault is paused");
 
         (
             address tokenIn,
@@ -114,9 +114,9 @@ contract SwapAction is IAction, Ownable {
             uint256 deadline
         ) = abi.decode(actionData, (address, address, uint256, uint256, uint256));
 
-        require(tokenIn != address(0) && tokenOut != address(0), "Invalid tokens");
-        require(amountIn > 0, "Invalid amount");
-        require(deadline > block.timestamp, "Deadline expired");
+        require(tokenIn != address(0) && tokenOut != address(0), "SwapAction: invalid token addresses");
+        require(amountIn > 0, "SwapAction: amount must be greater than zero");
+        require(deadline > block.timestamp, "SwapAction: deadline expired");
 
         // Calculate minimum acceptable output based on slippage tolerance
         // This assumes 1:1 price for simplification - in production, use oracle
