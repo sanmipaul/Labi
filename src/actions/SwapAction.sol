@@ -25,6 +25,12 @@ interface IUniswapV2Router {
  * @title SwapAction
  * @notice Executes token swaps on Uniswap V2
  * @dev Implements reentrancy protection for secure token swap execution
+ *
+ * Security Considerations:
+ * - Protected against reentrancy attacks via ReentrancyGuard
+ * - Follows checks-effects-interactions pattern
+ * - All external calls are guarded by nonReentrant modifier
+ * - Comprehensive input validation before any state changes
  */
 contract SwapAction is IAction, ReentrancyGuard {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
