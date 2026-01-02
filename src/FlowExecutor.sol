@@ -4,8 +4,9 @@ import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
+import {Ownable} from "./Ownable.sol";
 
-contract FlowExecutor {
+contract FlowExecutor is Ownable {
     IIntentRegistry public registry;
     
     mapping(uint256 => ITrigger) public triggerContracts;
