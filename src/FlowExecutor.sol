@@ -16,7 +16,11 @@ contract FlowExecutor is Ownable {
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
 
-    constructor(address registryAddress) {
+    /**
+     * @dev Constructor sets the registry address and initializes ownership
+     * @param registryAddress Address of the IntentRegistry contract
+     */
+    constructor(address registryAddress) Ownable() {
         require(registryAddress != address(0), "Invalid registry");
         registry = IIntentRegistry(registryAddress);
     }
