@@ -131,19 +131,24 @@ contract SwapAction is IAction, Ownable {
         require(amountIn > 0, "SwapAction: amount must be greater than zero");
         require(deadline > block.timestamp, "SwapAction: deadline expired");
 
+        // SLIPPAGE PROTECTION LOGIC
         // Calculate minimum acceptable output based on slippage tolerance
+        // Formula: minOutput = amountIn * (10000 - minSlippageBps) / 10000
+        // Example: If minSlippageBps = 50 (0.5%), and amountIn = 1000
+        //          minOutput = 1000 * (10000 - 50) / 10000 = 995
         // This assumes 1:1 price for simplification - in production, use oracle
         uint256 calculatedMinOutput = (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
 
         // Validate that user's amountOutMin meets minimum slippage requirements
         // This prevents users from setting amountOutMin to 0 or too low, protecting from MEV
+        // If user sets amountOutMin below our calculated minimum, reject the transaction
         if (amountOutMin < calculatedMinOutput) {
             emit SlippageProtectionTriggered(vault, amountIn, amountOutMin, calculatedMinOutput);
             revert("SwapAction: slippage tolerance too high");
         }
 
-        // Ensure slippage is within maximum bounds
-        uint256 maxSlippageOutput = (amountIn * (BPS_DENOMINATOR - maxSlippageBps)) / BPS_DENOMINATOR;
+        // Sanity check: ensure amountOutMin doesn't exceed amountIn
+        // This prevents invalid configurations
         require(amountOutMin <= amountIn, "SwapAction: invalid min output");
 
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
