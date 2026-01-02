@@ -21,7 +21,12 @@ interface IUniswapV2Router {
     ) external returns (uint256[] memory amounts);
 }
 
-contract SwapAction is IAction {
+/**
+ * @title SwapAction
+ * @notice Executes token swaps on Uniswap V2
+ * @dev Implements reentrancy protection for secure token swap execution
+ */
+contract SwapAction is IAction, ReentrancyGuard {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
     function actionType() external pure returns (uint8) {
