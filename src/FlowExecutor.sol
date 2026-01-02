@@ -38,7 +38,13 @@ contract FlowExecutor is Ownable {
         emit TriggerRegistered(triggerType, triggerContract);
     }
 
-    function registerAction(uint8 actionType, address actionContract) external {
+    /**
+     * @dev Registers an action contract for a specific action type
+     * @param actionType The type identifier for the action
+     * @param actionContract Address of the action contract to register
+     * @notice Only the contract owner can register actions
+     */
+    function registerAction(uint8 actionType, address actionContract) external onlyOwner {
         require(actionContract != address(0), "Invalid action contract");
         require(actionType > 0, "Invalid action type");
         actionContracts[actionType] = IAction(actionContract);
