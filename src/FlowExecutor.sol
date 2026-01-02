@@ -6,6 +6,18 @@ import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
 import {Ownable} from "./Ownable.sol";
 
+/**
+ * @title FlowExecutor
+ * @notice Executes intent flows by evaluating triggers, conditions, and actions
+ * @dev This contract manages the registration of trigger and action contracts
+ * and orchestrates the execution of user-defined intent flows.
+ *
+ * Security Model:
+ * - Only the contract owner can register/unregister triggers and actions
+ * - Registered contracts cannot be accidentally overwritten
+ * - Anyone can attempt to execute flows, but execution is subject to strict validation
+ * - All critical operations emit events for transparency
+ */
 contract FlowExecutor is Ownable {
     IIntentRegistry public registry;
     
