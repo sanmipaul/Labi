@@ -132,8 +132,18 @@ contract IntentVault is IIntentVault {
         return approvedProtocols[protocol];
     }
 
+    /**
+     * @dev Resets the spending tracker for a token without changing the cap
+     * @param token The token address
+     * @notice Only the owner can call this function
+     */
     function resetSpendingTracker(address token) external onlyOwner {
+        require(token != address(0), "IntentVault: invalid token address");
+        uint256 previousSpent = spentAmounts[token];
         spentAmounts[token] = 0;
+        if (previousSpent > 0) {
+            emit SpendingReset(token, previousSpent);
+        }
     }
 
     function isPaused() external view returns (bool) {
