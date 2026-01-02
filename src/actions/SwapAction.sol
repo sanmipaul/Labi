@@ -129,6 +129,7 @@ contract SwapAction is IAction, Ownable {
 
         require(tokenIn != address(0) && tokenOut != address(0), "SwapAction: invalid token addresses");
         require(amountIn > 0, "SwapAction: amount must be greater than zero");
+        require(amountOutMin > 0, "SwapAction: minimum output must be greater than zero");
         require(deadline > block.timestamp, "SwapAction: deadline expired");
 
         // SLIPPAGE PROTECTION LOGIC
