@@ -78,6 +78,20 @@ contract SwapAction is IAction, Ownable {
         emit MaxSlippageUpdated(oldValue, newMaxSlippageBps);
     }
 
+    /**
+     * @dev Returns the current slippage configuration
+     * @return minBps Minimum slippage in basis points
+     * @return maxBps Maximum slippage in basis points
+     * @return denominator Basis points denominator
+     */
+    function getSlippageConfig() external view returns (
+        uint256 minBps,
+        uint256 maxBps,
+        uint256 denominator
+    ) {
+        return (minSlippageBps, maxSlippageBps, BPS_DENOMINATOR);
+    }
+
     function execute(address vault, bytes calldata actionData) external returns (bool) {
         require(vault != address(0), "Invalid vault");
         require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
