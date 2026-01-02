@@ -58,7 +58,7 @@ contract SwapAction is IAction, ReentrancyGuard {
         require(deadline > block.timestamp, "SwapAction: deadline expired");
 
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
-        require(remainingCap >= amountIn, "Spending cap exceeded");
+        require(remainingCap >= amountIn, "SwapAction: spending cap exceeded");
 
         IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
 
