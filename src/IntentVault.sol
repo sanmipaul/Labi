@@ -56,10 +56,21 @@ contract IntentVault is IIntentVault {
         return spendingCaps[token];
     }
 
-    function getRemainingSpendingCap(address token) external view returns (uint256) {
+    /**
+     * @dev Returns the remaining spending cap for a token
+     * @param token The token address
+     * @return remaining The remaining spendable amount
+     * @notice Automatically protected against underflow by Solidity 0.8+
+     */
+    function getRemainingSpendingCap(address token) external view returns (uint256 remaining) {
         uint256 cap = spendingCaps[token];
         uint256 spent = spentAmounts[token];
+
+        // Check if spent exceeds cap (shouldn't happen with proper validation)
         if (spent >= cap) return 0;
+
+        // Solidity 0.8+ provides automatic underflow protection
+        // This subtraction will revert if spent > cap (but we already checked above)
         return cap - spent;
     }
 
