@@ -3,6 +3,16 @@ pragma solidity ^0.8.19;
 
 import {IIntentVault} from "./IIntentVault.sol";
 
+/**
+ * @title IntentVault
+ * @notice Manages spending caps and protocol approvals for intent-based automation
+ * @dev Implements zero address validation to prevent locked funds and broken functionality
+ *
+ * Security: All address parameters are validated against zero address to ensure:
+ * - Protocols cannot be approved/revoked with invalid addresses
+ * - Token addresses are always valid for spending cap operations
+ * - No funds can be locked due to invalid address configurations
+ */
 contract IntentVault is IIntentVault {
     address private vaultOwner;
     bool private paused;
