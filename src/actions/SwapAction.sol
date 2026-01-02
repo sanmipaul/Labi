@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import {IAction} from "./IAction.sol";
 import {IIntentVault} from "../IIntentVault.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
