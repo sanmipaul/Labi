@@ -57,6 +57,15 @@ contract IntentVault is IIntentVault {
     }
 
     /**
+     * @dev Returns the total amount spent for a token
+     * @param token The token address
+     * @return spent The total amount spent
+     */
+    function getSpentAmount(address token) external view returns (uint256 spent) {
+        return spentAmounts[token];
+    }
+
+    /**
      * @dev Returns the remaining spending cap for a token
      * @param token The token address
      * @return remaining The remaining spendable amount
