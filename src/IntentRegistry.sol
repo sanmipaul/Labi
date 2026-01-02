@@ -1,7 +1,18 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IIntentRegistry} from "./IIntentRegistry.sol";
 
+/**
+ * @title IntentRegistry
+ * @notice Registry for managing user intent flows
+ * @dev Implements zero address validation to prevent locked funds and broken functionality
+ *
+ * Security: All address parameters are validated against zero address to ensure:
+ * - Flows cannot be created for invalid addresses
+ * - Flow ownership is always valid
+ * - No funds can be locked in unreachable flows
+ */
 contract IntentRegistry is IIntentRegistry {
     uint256 private flowCounter;
     
@@ -57,6 +68,7 @@ contract IntentRegistry is IIntentRegistry {
     }
 
     function getUserFlows(address user) external view returns (uint256[] memory) {
+        require(user != address(0), "IntentRegistry: user address is zero");
         return userFlows[user];
     }
 
