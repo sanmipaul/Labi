@@ -94,6 +94,12 @@ contract IntentRegistry is IIntentRegistry {
         return userFlows[user];
     }
 
+    /**
+     * @notice Update the active status of a flow
+     * @param flowId The ID of the flow to update
+     * @param active The new active status (true = active, false = inactive)
+     * @dev Only the flow owner can update the status
+     */
     function updateFlowStatus(uint256 flowId, bool active) external {
         require(flows[flowId].user == msg.sender, "Only flow owner can update");
         flows[flowId].active = active;
