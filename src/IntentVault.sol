@@ -165,16 +165,30 @@ contract IntentVault is IIntentVault {
         }
     }
 
+    /**
+     * @dev Checks if the vault is paused
+     * @return bool True if the vault is paused
+     */
     function isPaused() external view returns (bool) {
         return paused;
     }
 
+    /**
+     * @dev Pauses the vault, preventing spending operations
+     * @notice Only the owner can call this function
+     */
     function pause() external onlyOwner {
+        require(!paused, "IntentVault: already paused");
         paused = true;
         emit Paused();
     }
 
+    /**
+     * @dev Unpauses the vault, allowing spending operations
+     * @notice Only the owner can call this function
+     */
     function unpause() external onlyOwner {
+        require(paused, "IntentVault: not paused");
         paused = false;
         emit Unpaused();
     }
