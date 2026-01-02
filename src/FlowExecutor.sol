@@ -4,8 +4,21 @@ import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
+import {Ownable} from "./Ownable.sol";
 
-contract FlowExecutor {
+/**
+ * @title FlowExecutor
+ * @notice Executes intent flows by evaluating triggers, conditions, and actions
+ * @dev This contract manages the registration of trigger and action contracts
+ * and orchestrates the execution of user-defined intent flows.
+ *
+ * Security Model:
+ * - Only the contract owner can register/unregister triggers and actions
+ * - Registered contracts cannot be accidentally overwritten
+ * - Anyone can attempt to execute flows, but execution is subject to strict validation
+ * - All critical operations emit events for transparency
+ */
+contract FlowExecutor is Ownable {
     IIntentRegistry public registry;
     
     mapping(uint256 => ITrigger) public triggerContracts;
@@ -14,24 +27,72 @@ contract FlowExecutor {
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
+    event TriggerUnregistered(uint8 indexed triggerType, address triggerContract);
+    event ActionUnregistered(uint8 indexed actionType, address actionContract);
 
-    constructor(address registryAddress) {
+    /**
+     * @dev Constructor sets the registry address and initializes ownership
+     * @param registryAddress Address of the IntentRegistry contract
+     */
+    constructor(address registryAddress) Ownable() {
         require(registryAddress != address(0), "Invalid registry");
         registry = IIntentRegistry(registryAddress);
     }
 
-    function registerTrigger(uint8 triggerType, address triggerContract) external {
-        require(triggerContract != address(0), "Invalid trigger contract");
-        require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
+    /**
+     * @dev Registers a trigger contract for a specific trigger type
+     * @param triggerType The type identifier for the trigger (1-2)
+     * @param triggerContract Address of the trigger contract to register
+     * @notice Only the contract owner can register triggers
+     * @notice This will revert if a trigger is already registered for this type
+     */
+    function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
+        require(triggerContract != address(0), "FlowExecutor: trigger contract is zero address");
+        require(triggerType > 0 && triggerType <= 2, "FlowExecutor: invalid trigger type");
+        require(address(triggerContracts[triggerType]) == address(0), "FlowExecutor: trigger already registered");
         triggerContracts[triggerType] = ITrigger(triggerContract);
         emit TriggerRegistered(triggerType, triggerContract);
     }
 
-    function registerAction(uint8 actionType, address actionContract) external {
-        require(actionContract != address(0), "Invalid action contract");
-        require(actionType > 0, "Invalid action type");
+    /**
+     * @dev Registers an action contract for a specific action type
+     * @param actionType The type identifier for the action
+     * @param actionContract Address of the action contract to register
+     * @notice Only the contract owner can register actions
+     * @notice This will revert if an action is already registered for this type
+     */
+    function registerAction(uint8 actionType, address actionContract) external onlyOwner {
+        require(actionContract != address(0), "FlowExecutor: action contract is zero address");
+        require(actionType > 0, "FlowExecutor: invalid action type");
+        require(address(actionContracts[actionType]) == address(0), "FlowExecutor: action already registered");
         actionContracts[actionType] = IAction(actionContract);
         emit ActionRegistered(actionType, actionContract);
+    }
+
+    /**
+     * @dev Unregisters a trigger contract for a specific trigger type
+     * @param triggerType The type identifier for the trigger to unregister
+     * @notice Only the contract owner can unregister triggers
+     */
+    function unregisterTrigger(uint8 triggerType) external onlyOwner {
+        require(triggerType > 0 && triggerType <= 2, "FlowExecutor: invalid trigger type");
+        address oldTrigger = address(triggerContracts[triggerType]);
+        require(oldTrigger != address(0), "FlowExecutor: trigger not registered");
+        delete triggerContracts[triggerType];
+        emit TriggerUnregistered(triggerType, oldTrigger);
+    }
+
+    /**
+     * @dev Unregisters an action contract for a specific action type
+     * @param actionType The type identifier for the action to unregister
+     * @notice Only the contract owner can unregister actions
+     */
+    function unregisterAction(uint8 actionType) external onlyOwner {
+        require(actionType > 0, "FlowExecutor: invalid action type");
+        address oldAction = address(actionContracts[actionType]);
+        require(oldAction != address(0), "FlowExecutor: action not registered");
+        delete actionContracts[actionType];
+        emit ActionUnregistered(actionType, oldAction);
     }
 
     function executeFlow(uint256 flowId) external returns (bool) {
@@ -133,5 +194,41 @@ contract FlowExecutor {
         }
 
         return (true, "Ready for execution");
+    }
+
+    /**
+     * @dev Checks if a trigger type is registered
+     * @param triggerType The type identifier to check
+     * @return bool True if the trigger is registered
+     */
+    function isTriggerRegistered(uint8 triggerType) external view returns (bool) {
+        return address(triggerContracts[triggerType]) != address(0);
+    }
+
+    /**
+     * @dev Checks if an action type is registered
+     * @param actionType The type identifier to check
+     * @return bool True if the action is registered
+     */
+    function isActionRegistered(uint8 actionType) external view returns (bool) {
+        return address(actionContracts[actionType]) != address(0);
+    }
+
+    /**
+     * @dev Gets the registered trigger contract address
+     * @param triggerType The type identifier to query
+     * @return address The address of the registered trigger contract
+     */
+    function getTriggerContract(uint8 triggerType) external view returns (address) {
+        return address(triggerContracts[triggerType]);
+    }
+
+    /**
+     * @dev Gets the registered action contract address
+     * @param actionType The type identifier to query
+     * @return address The address of the registered action contract
+     */
+    function getActionContract(uint8 actionType) external view returns (address) {
+        return address(actionContracts[actionType]);
     }
 }

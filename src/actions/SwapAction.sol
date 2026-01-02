@@ -172,14 +172,22 @@ contract SwapAction is IAction, Ownable {
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
         require(remainingCap >= amountIn, "SwapAction: spending cap exceeded");
 
-        IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        // External call 1: Transfer tokens from vault to this contract
+        // Protected by nonReentrant modifier
+        bool transferSuccess = IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        require(transferSuccess, "SwapAction: token transfer failed");
 
-        IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        // Approve Uniswap router to spend tokens
+        bool approveSuccess = IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        require(approveSuccess, "SwapAction: token approval failed");
 
+        // Prepare swap path
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
+        // External call 2: Execute swap on Uniswap
+        // Protected by nonReentrant modifier
         uint256[] memory amounts = IUniswapV2Router(UNISWAP_ROUTER).swapExactTokensForTokens(
             amountIn,
             amountOutMin,
@@ -188,7 +196,12 @@ contract SwapAction is IAction, Ownable {
             deadline
         );
 
+        // External call 3: Record spending in vault
+        // Protected by nonReentrant modifier
         IIntentVault(vault).recordSpending(tokenIn, amountIn);
+
+        // Emit event for successful swap
+        emit SwapExecuted(vault, tokenIn, tokenOut, amountIn, amounts[1]);
 
         return amounts[1] >= amountOutMin;
     }
