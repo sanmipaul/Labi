@@ -122,6 +122,11 @@ contract IntentRegistry is IIntentRegistry {
         emit FlowExecuted(flowId, block.timestamp);
     }
 
+    /**
+     * @notice Get the current flow counter
+     * @return The total number of flows created
+     * @dev This represents the highest flow ID assigned
+     */
     function getFlowCounter() external view returns (uint256) {
         return flowCounter;
     }
