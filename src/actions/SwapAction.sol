@@ -33,6 +33,15 @@ contract SwapAction is IAction {
     // Basis points denominator (100% = 10000 bp)
     uint256 private constant BPS_DENOMINATOR = 10000;
 
+    event MinSlippageUpdated(uint256 oldValue, uint256 newValue);
+    event MaxSlippageUpdated(uint256 oldValue, uint256 newValue);
+    event SlippageProtectionTriggered(
+        address indexed vault,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        uint256 calculatedMin
+    );
+
     function actionType() external pure returns (uint8) {
         return 1;
     }
