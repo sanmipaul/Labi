@@ -114,6 +114,14 @@ contract SwapAction is IAction, Ownable {
         return (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
     }
 
+    /**
+     * @dev Executes a token swap with slippage protection
+     * @param vault The address of the user's intent vault
+     * @param actionData Encoded swap parameters (tokenIn, tokenOut, amountIn, amountOutMin, deadline)
+     * @return bool True if the swap was successful
+     * @notice Validates amountOutMin against minimum slippage requirements
+     * @notice Reverts if slippage tolerance is too high or other validations fail
+     */
     function execute(address vault, bytes calldata actionData) external returns (bool) {
         require(vault != address(0), "SwapAction: vault is zero address");
         require(IIntentVault(vault).isApprovedProtocol(msg.sender), "SwapAction: protocol not approved");
