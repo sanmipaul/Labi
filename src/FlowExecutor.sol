@@ -197,4 +197,22 @@ contract FlowExecutor is Ownable {
     function isActionRegistered(uint8 actionType) external view returns (bool) {
         return address(actionContracts[actionType]) != address(0);
     }
+
+    /**
+     * @dev Gets the registered trigger contract address
+     * @param triggerType The type identifier to query
+     * @return address The address of the registered trigger contract
+     */
+    function getTriggerContract(uint8 triggerType) external view returns (address) {
+        return address(triggerContracts[triggerType]);
+    }
+
+    /**
+     * @dev Gets the registered action contract address
+     * @param actionType The type identifier to query
+     * @return address The address of the registered action contract
+     */
+    function getActionContract(uint8 actionType) external view returns (address) {
+        return address(actionContracts[actionType]);
+    }
 }
