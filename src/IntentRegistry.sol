@@ -106,13 +106,19 @@ contract IntentRegistry is IIntentRegistry {
         emit FlowStatusUpdated(flowId, active);
     }
 
+    /**
+     * @notice Record the execution of a flow
+     * @param flowId The ID of the flow that was executed
+     * @dev Validates flow existence and active status before recording
+     * @dev Updates lastExecutedAt timestamp and increments executionCount
+     */
     function recordExecution(uint256 flowId) external {
         require(flows[flowId].user != address(0), "Flow does not exist");
         require(flows[flowId].active, "Flow is not active");
-        
+
         flows[flowId].lastExecutedAt = block.timestamp;
         flows[flowId].executionCount++;
-        
+
         emit FlowExecuted(flowId, block.timestamp);
     }
 
