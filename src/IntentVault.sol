@@ -118,16 +118,35 @@ contract IntentVault is IIntentVault {
         emit SpendingRecorded(token, amount, totalSpent);
     }
 
+    /**
+     * @dev Approves a protocol to record spending
+     * @param protocol The protocol address to approve
+     * @notice Only the owner can call this function
+     */
     function approveProtocol(address protocol) external onlyOwner {
+        require(protocol != address(0), "IntentVault: invalid protocol address");
+        require(!approvedProtocols[protocol], "IntentVault: protocol already approved");
         approvedProtocols[protocol] = true;
         emit ProtocolApproved(protocol);
     }
 
+    /**
+     * @dev Revokes approval for a protocol
+     * @param protocol The protocol address to revoke
+     * @notice Only the owner can call this function
+     */
     function revokeProtocol(address protocol) external onlyOwner {
+        require(protocol != address(0), "IntentVault: invalid protocol address");
+        require(approvedProtocols[protocol], "IntentVault: protocol not approved");
         approvedProtocols[protocol] = false;
         emit ProtocolRevoked(protocol);
     }
 
+    /**
+     * @dev Checks if a protocol is approved
+     * @param protocol The protocol address to check
+     * @return bool True if the protocol is approved
+     */
     function isApprovedProtocol(address protocol) external view returns (bool) {
         return approvedProtocols[protocol];
     }
