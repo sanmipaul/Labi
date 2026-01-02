@@ -15,6 +15,8 @@ contract FlowExecutor is Ownable {
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
+    event TriggerUnregistered(uint8 indexed triggerType, address triggerContract);
+    event ActionUnregistered(uint8 indexed actionType, address actionContract);
 
     /**
      * @dev Constructor sets the registry address and initializes ownership
