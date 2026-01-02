@@ -33,12 +33,12 @@ contract IntentVault is IIntentVault {
     }
 
     modifier onlyOwner() {
-        require(msg.sender == vaultOwner, "Only owner");
+        require(msg.sender == vaultOwner, "IntentVault: caller is not the owner");
         _;
     }
 
     modifier whenNotPaused() {
-        require(!paused, "Vault is paused");
+        require(!paused, "IntentVault: vault is paused");
         _;
     }
 
