@@ -32,6 +32,16 @@ contract IntentRegistry is IIntentRegistry {
         flowCounter = 0;
     }
 
+    /**
+     * @notice Create a new intent flow
+     * @param triggerType The type of trigger (1-2)
+     * @param triggerValue The trigger threshold value
+     * @param triggerData Encoded trigger configuration data
+     * @param conditionData Encoded condition logic data
+     * @param actionData Encoded action execution data
+     * @return flowId The ID of the newly created flow
+     * @dev Flow creator (msg.sender) is automatically validated as non-zero by EVM
+     */
     function createFlow(
         uint8 triggerType,
         uint256 triggerValue,
@@ -40,7 +50,7 @@ contract IntentRegistry is IIntentRegistry {
         bytes calldata actionData
     ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
-        
+
         uint256 flowId = ++flowCounter;
         
         flows[flowId] = IntentFlow({
