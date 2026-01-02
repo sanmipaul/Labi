@@ -33,6 +33,10 @@ interface IUniswapV2Router {
  * - Comprehensive input validation before any state changes
  */
 contract SwapAction is IAction, ReentrancyGuard {
+    /**
+     * @notice Uniswap V2 Router address on Base network
+     * @dev This address is immutable and specific to the Base network
+     */
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
     event SwapExecuted(
