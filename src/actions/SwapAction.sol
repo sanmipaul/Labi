@@ -92,6 +92,15 @@ contract SwapAction is IAction, Ownable {
         return (minSlippageBps, maxSlippageBps, BPS_DENOMINATOR);
     }
 
+    /**
+     * @dev Calculates the minimum output amount based on input and slippage
+     * @param amountIn The input amount
+     * @return minOutput The minimum acceptable output amount
+     */
+    function calculateMinOutput(uint256 amountIn) external view returns (uint256 minOutput) {
+        return (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
+    }
+
     function execute(address vault, bytes calldata actionData) external returns (bool) {
         require(vault != address(0), "Invalid vault");
         require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
