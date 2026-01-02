@@ -62,6 +62,12 @@ contract IntentRegistry is IIntentRegistry {
         return flowId;
     }
 
+    /**
+     * @notice Retrieve a specific intent flow by ID
+     * @param flowId The ID of the flow to retrieve
+     * @return The IntentFlow struct containing all flow data
+     * @dev Validates flow existence by checking if the flow owner is not zero address
+     */
     function getFlow(uint256 flowId) external view returns (IntentFlow memory) {
         require(flows[flowId].user != address(0), "Flow does not exist");
         return flows[flowId];
