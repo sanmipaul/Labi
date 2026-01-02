@@ -71,14 +71,16 @@ contract IntentVault is IIntentVault {
      * @notice Automatically protected against overflow by Solidity 0.8+
      */
     function recordSpending(address token, uint256 amount) external whenNotPaused {
-        require(approvedProtocols[msg.sender], "Protocol not approved");
+        require(approvedProtocols[msg.sender], "IntentVault: protocol not approved");
+        require(amount > 0, "IntentVault: amount must be greater than zero");
+        require(token != address(0), "IntentVault: invalid token address");
 
         // Solidity 0.8+ provides automatic overflow protection
         // This addition will revert if spentAmounts[token] + amount > type(uint256).max
         spentAmounts[token] += amount;
 
         // Verify spending cap is not exceeded
-        require(spentAmounts[token] <= spendingCaps[token], "Spending cap exceeded");
+        require(spentAmounts[token] <= spendingCaps[token], "IntentVault: spending cap exceeded");
         emit SpendingRecorded(token, amount);
     }
 
