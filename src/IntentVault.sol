@@ -13,19 +13,42 @@ import {IIntentVault} from "./IIntentVault.sol";
  * This eliminates the need for SafeMath library.
  */
 contract IntentVault is IIntentVault {
+    /// @dev Address of the vault owner
     address private vaultOwner;
+
+    /// @dev Pause status of the vault
     bool private paused;
 
+    /// @dev Mapping of approved protocol addresses
     mapping(address => bool) private approvedProtocols;
+
+    /// @dev Mapping of spending caps per token
+    /// @notice Protected against overflow by Solidity 0.8+
     mapping(address => uint256) private spendingCaps;
+
+    /// @dev Mapping of spent amounts per token
+    /// @notice Protected against overflow by Solidity 0.8+
     mapping(address => uint256) private spentAmounts;
 
+    /// @notice Emitted when a spending cap is set for a token
     event SpendingCapSet(address indexed token, uint256 cap);
+
+    /// @notice Emitted when spending is reset for a token
     event SpendingReset(address indexed token, uint256 previousSpent);
+
+    /// @notice Emitted when a protocol is approved
     event ProtocolApproved(address indexed protocol);
+
+    /// @notice Emitted when a protocol is revoked
     event ProtocolRevoked(address indexed protocol);
+
+    /// @notice Emitted when the vault is paused
     event Paused();
+
+    /// @notice Emitted when the vault is unpaused
     event Unpaused();
+
+    /// @notice Emitted when spending is recorded
     event SpendingRecorded(address indexed token, uint256 amount, uint256 totalSpent);
 
     constructor() {
