@@ -63,9 +63,21 @@ contract IntentVault is IIntentVault {
         return cap - spent;
     }
 
+    /**
+     * @dev Records spending for a token
+     * @param token The token address
+     * @param amount The amount spent
+     * @notice Only approved protocols can call this function
+     * @notice Automatically protected against overflow by Solidity 0.8+
+     */
     function recordSpending(address token, uint256 amount) external whenNotPaused {
         require(approvedProtocols[msg.sender], "Protocol not approved");
+
+        // Solidity 0.8+ provides automatic overflow protection
+        // This addition will revert if spentAmounts[token] + amount > type(uint256).max
         spentAmounts[token] += amount;
+
+        // Verify spending cap is not exceeded
         require(spentAmounts[token] <= spendingCaps[token], "Spending cap exceeded");
         emit SpendingRecorded(token, amount);
     }
