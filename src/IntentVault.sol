@@ -76,6 +76,7 @@ contract IntentVault is IIntentVault {
     }
 
     function isApprovedProtocol(address protocol) external view returns (bool) {
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         return approvedProtocols[protocol];
     }
 
