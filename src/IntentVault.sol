@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IIntentVault} from "./IIntentVault.sol";
@@ -11,6 +12,9 @@ import {IIntentVault} from "./IIntentVault.sol";
  * This contract uses Solidity 0.8.19 which includes automatic overflow/underflow
  * protection. All arithmetic operations will revert on overflow/underflow.
  * This eliminates the need for SafeMath library.
+ *
+ * IMPORTANT: Do not downgrade to Solidity 0.7.x or earlier, as this would remove
+ * the automatic overflow protection and introduce security vulnerabilities.
  */
 contract IntentVault is IIntentVault {
     /// @dev Address of the vault owner
