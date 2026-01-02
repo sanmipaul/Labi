@@ -59,4 +59,12 @@ abstract contract ReentrancyGuard {
     function _nonReentrantAfter() private {
         _status = NOT_ENTERED;
     }
+
+    /**
+     * @dev Returns true if the reentrancy guard is currently active
+     * @return bool True if a nonReentrant function is currently executing
+     */
+    function _reentrancyGuardEntered() internal view returns (bool) {
+        return _status == ENTERED;
+    }
 }
