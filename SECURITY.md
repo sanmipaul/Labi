@@ -2,39 +2,76 @@
 
 ## Security Updates
 
-### [2026-01-02] Reentrancy Protection for SwapAction Contract
+### [2026-01-02] Slippage Validation for SwapAction Contract
 
-**Issue:** Reentrancy vulnerability in SwapAction contract (Issue #5)
+**Issue:** Missing slippage validation in SwapAction contract (Issue #6)
 
-**Severity:** Medium
+**Severity:** High
 
 **Description:**
-The SwapAction contract performed multiple external calls to ERC20 tokens, Uniswap router, and the IntentVault without reentrancy protection. This created a potential attack vector where a malicious token contract or compromised external contract could re-enter the execute function during token transfers or swaps, potentially manipulating state or draining funds.
+The SwapAction contract accepted `amountOutMin` from user input without validating whether it was reasonable. Users could set this value to 0 or dangerously low amounts, exposing them to:
+- MEV (Maximal Extractable Value) attacks
+- Sandwich attacks
+- Excessive slippage losses
+- Front-running attacks
+
+The lack of validation meant users could unknowingly approve swaps that would result in receiving far less than expected, with attackers able to extract significant value.
 
 **Resolution:**
-- Implemented comprehensive `ReentrancyGuard` contract following industry best practices
-- Added `nonReentrant` modifier to the `execute` function in SwapAction
-- All external calls are now protected by the reentrancy guard:
-  1. ERC20 token transfers (`transferFrom`)
-  2. Uniswap router swap execution
-  3. IntentVault spending recording
-- Added `SwapExecuted` event for better tracking and transparency
-- Enhanced input validation (token addresses, amounts, deadline)
-- Improved error messages with contract-specific prefixes
-- Added comprehensive inline documentation explaining the protection
+- Implemented configurable minimum slippage tolerance (default: 0.5%)
+- Added configurable maximum slippage bounds (default: 5%)
+- Enforced validation: user's `amountOutMin` must meet minimum slippage requirements
+- Added `SlippageProtectionTriggered` event when protection is activated
+- Implemented owner-only functions to configure slippage parameters:
+  - `setMinSlippage(uint256)` - Set minimum slippage tolerance
+  - `setMaxSlippage(uint256)` - Set maximum slippage tolerance
+- Added helper functions:
+  - `getSlippageConfig()` - View current configuration
+  - `calculateMinOutput(uint256)` - Calculate minimum output for given input
+- Used basis points (bp) for precision: 10000 bp = 100%
 
-**Technical Details:**
-The ReentrancyGuard uses a state variable that tracks whether a function is currently executing. The `nonReentrant` modifier sets this state to "ENTERED" before function execution and resets it to "NOT_ENTERED" after completion. Any attempt to re-enter while the state is "ENTERED" will cause the transaction to revert.
+**Technical Implementation:**
+```solidity
+// Calculate minimum acceptable output
+uint256 calculatedMinOutput = (amountIn * (10000 - minSlippageBps)) / 10000;
+
+// Reject if user's amountOutMin is too low
+if (amountOutMin < calculatedMinOutput) {
+    emit SlippageProtectionTriggered(vault, amountIn, amountOutMin, calculatedMinOutput);
+    revert("SwapAction: slippage tolerance too high");
+}
+```
+
+**Example:**
+- Input: 1000 tokens
+- Minimum slippage: 50 bp (0.5%)
+- Calculated minimum output: 995 tokens
+- If user sets amountOutMin < 995, transaction reverts
 
 **Impact:**
-Users are now protected from reentrancy attacks during token swaps. The contract follows the checks-effects-interactions pattern and prevents recursive calls that could compromise the integrity of swap operations.
+Users are now protected from:
+- Accidentally setting zero or very low slippage tolerance
+- MEV bot exploitation
+- Sandwich attacks that would result in significant value loss
+- Front-running with excessive slippage
+
+**Default Configuration:**
+- Minimum slippage: 50 basis points (0.5%)
+- Maximum slippage: 500 basis points (5%)
+- Basis points denominator: 10000 (100%)
 
 **Recommendation for Existing Deployments:**
-If you have already deployed SwapAction without reentrancy protection:
+If you have already deployed SwapAction without slippage validation:
 1. Deploy the updated version immediately
-2. Update FlowExecutor to use the new SwapAction address
-3. Deprecate the old SwapAction contract
-4. Monitor all swap transactions for any anomalies
+2. Configure appropriate slippage parameters for your use case
+3. Update FlowExecutor to use the new SwapAction address
+4. Deprecate the old SwapAction contract
+5. Monitor SlippageProtectionTriggered events to understand user behavior
+
+**Future Enhancements:**
+- Integration with price oracles for dynamic slippage calculation
+- Different slippage tolerances for different token pairs
+- Automatic slippage adjustment based on market volatility
 
 ## Reporting a Vulnerability
 
