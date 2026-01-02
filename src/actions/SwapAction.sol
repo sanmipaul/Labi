@@ -23,6 +23,16 @@ interface IUniswapV2Router {
 contract SwapAction is IAction {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
+    // Slippage tolerance in basis points (1 bp = 0.01%)
+    // Default: 50 bp = 0.5% minimum slippage protection
+    uint256 public minSlippageBps = 50;
+
+    // Maximum allowed slippage: 500 bp = 5%
+    uint256 public maxSlippageBps = 500;
+
+    // Basis points denominator (100% = 10000 bp)
+    uint256 private constant BPS_DENOMINATOR = 10000;
+
     function actionType() external pure returns (uint8) {
         return 1;
     }
