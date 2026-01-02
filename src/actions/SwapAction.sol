@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import {IAction} from "./IAction.sol";
 import {IIntentVault} from "../IIntentVault.sol";
+import {Ownable} from "../Ownable.sol";
 
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -20,7 +21,12 @@ interface IUniswapV2Router {
     ) external returns (uint256[] memory amounts);
 }
 
-contract SwapAction is IAction {
+/**
+ * @title SwapAction
+ * @notice Executes token swaps with slippage protection
+ * @dev Implements configurable minimum slippage tolerance to protect users from MEV
+ */
+contract SwapAction is IAction, Ownable {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
 
     // Slippage tolerance in basis points (1 bp = 0.01%)
