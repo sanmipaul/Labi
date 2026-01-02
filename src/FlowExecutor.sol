@@ -47,10 +47,12 @@ contract FlowExecutor is Ownable {
      * @param actionType The type identifier for the action
      * @param actionContract Address of the action contract to register
      * @notice Only the contract owner can register actions
+     * @notice This will revert if an action is already registered for this type
      */
     function registerAction(uint8 actionType, address actionContract) external onlyOwner {
         require(actionContract != address(0), "Invalid action contract");
         require(actionType > 0, "Invalid action type");
+        require(address(actionContracts[actionType]) == address(0), "Action already registered");
         actionContracts[actionType] = IAction(actionContract);
         emit ActionRegistered(actionType, actionContract);
     }
