@@ -52,6 +52,32 @@ contract SwapAction is IAction, Ownable {
         return 1;
     }
 
+    /**
+     * @dev Sets the minimum slippage tolerance
+     * @param newMinSlippageBps New minimum slippage in basis points
+     * @notice Only owner can call this function
+     */
+    function setMinSlippage(uint256 newMinSlippageBps) external onlyOwner {
+        require(newMinSlippageBps > 0, "SwapAction: min slippage must be greater than zero");
+        require(newMinSlippageBps <= maxSlippageBps, "SwapAction: min slippage exceeds max");
+        uint256 oldValue = minSlippageBps;
+        minSlippageBps = newMinSlippageBps;
+        emit MinSlippageUpdated(oldValue, newMinSlippageBps);
+    }
+
+    /**
+     * @dev Sets the maximum slippage tolerance
+     * @param newMaxSlippageBps New maximum slippage in basis points
+     * @notice Only owner can call this function
+     */
+    function setMaxSlippage(uint256 newMaxSlippageBps) external onlyOwner {
+        require(newMaxSlippageBps >= minSlippageBps, "SwapAction: max slippage below min");
+        require(newMaxSlippageBps <= BPS_DENOMINATOR, "SwapAction: max slippage exceeds 100%");
+        uint256 oldValue = maxSlippageBps;
+        maxSlippageBps = newMaxSlippageBps;
+        emit MaxSlippageUpdated(oldValue, newMaxSlippageBps);
+    }
+
     function execute(address vault, bytes calldata actionData) external returns (bool) {
         require(vault != address(0), "Invalid vault");
         require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
