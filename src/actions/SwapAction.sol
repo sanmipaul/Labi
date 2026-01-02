@@ -60,14 +60,20 @@ contract SwapAction is IAction, ReentrancyGuard {
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
         require(remainingCap >= amountIn, "SwapAction: spending cap exceeded");
 
+        // External call 1: Transfer tokens from vault to this contract
+        // Protected by nonReentrant modifier
         IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
 
+        // Approve Uniswap router to spend tokens
         IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
 
+        // Prepare swap path
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
+        // External call 2: Execute swap on Uniswap
+        // Protected by nonReentrant modifier
         uint256[] memory amounts = IUniswapV2Router(UNISWAP_ROUTER).swapExactTokensForTokens(
             amountIn,
             amountOutMin,
@@ -76,6 +82,8 @@ contract SwapAction is IAction, ReentrancyGuard {
             deadline
         );
 
+        // External call 3: Record spending in vault
+        // Protected by nonReentrant modifier
         IIntentVault(vault).recordSpending(tokenIn, amountIn);
 
         return amounts[1] >= amountOutMin;
