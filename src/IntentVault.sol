@@ -67,6 +67,7 @@ contract IntentVault is IIntentVault {
     }
 
     function revokeProtocol(address protocol) external onlyOwner {
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         approvedProtocols[protocol] = false;
         emit ProtocolRevoked(protocol);
     }
