@@ -46,7 +46,15 @@ contract IntentVault is IIntentVault {
         return vaultOwner;
     }
 
+    /**
+     * @dev Sets the spending cap for a token and resets spent amounts
+     * @param token The token address
+     * @param cap The new spending cap
+     * @notice Only the owner can call this function
+     * @notice Resets the spent amount to 0 when setting a new cap
+     */
     function setSpendingCap(address token, uint256 cap) external onlyOwner {
+        require(token != address(0), "IntentVault: invalid token address");
         spendingCaps[token] = cap;
         spentAmounts[token] = 0;
         emit SpendingCapSet(token, cap);
