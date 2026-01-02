@@ -62,6 +62,7 @@ contract SwapAction is IAction, ReentrancyGuard {
         ) = abi.decode(actionData, (address, address, uint256, uint256, uint256));
 
         require(tokenIn != address(0) && tokenOut != address(0), "SwapAction: invalid token addresses");
+        require(tokenIn != tokenOut, "SwapAction: tokens must be different");
         require(amountIn > 0, "SwapAction: amount must be greater than zero");
         require(deadline > block.timestamp, "SwapAction: deadline expired");
 
