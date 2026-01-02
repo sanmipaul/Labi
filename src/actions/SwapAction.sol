@@ -78,10 +78,12 @@ contract SwapAction is IAction, ReentrancyGuard {
 
         // External call 1: Transfer tokens from vault to this contract
         // Protected by nonReentrant modifier
-        IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        bool transferSuccess = IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        require(transferSuccess, "SwapAction: token transfer failed");
 
         // Approve Uniswap router to spend tokens
-        IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        bool approveSuccess = IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        require(approveSuccess, "SwapAction: token approval failed");
 
         // Prepare swap path
         address[] memory path = new address[](2);
