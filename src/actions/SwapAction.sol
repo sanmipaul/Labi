@@ -100,7 +100,11 @@ contract SwapAction is IAction, Ownable {
         uint256 calculatedMinOutput = (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
 
         // Validate that user's amountOutMin meets minimum slippage requirements
-        require(amountOutMin >= calculatedMinOutput, "SwapAction: slippage tolerance too high");
+        // This prevents users from setting amountOutMin to 0 or too low, protecting from MEV
+        if (amountOutMin < calculatedMinOutput) {
+            emit SlippageProtectionTriggered(vault, amountIn, amountOutMin, calculatedMinOutput);
+            revert("SwapAction: slippage tolerance too high");
+        }
 
         // Ensure slippage is within maximum bounds
         uint256 maxSlippageOutput = (amountIn * (BPS_DENOMINATOR - maxSlippageBps)) / BPS_DENOMINATOR;
