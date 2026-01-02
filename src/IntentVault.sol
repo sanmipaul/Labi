@@ -21,11 +21,12 @@ contract IntentVault is IIntentVault {
     mapping(address => uint256) private spentAmounts;
 
     event SpendingCapSet(address indexed token, uint256 cap);
+    event SpendingReset(address indexed token, uint256 previousSpent);
     event ProtocolApproved(address indexed protocol);
     event ProtocolRevoked(address indexed protocol);
     event Paused();
     event Unpaused();
-    event SpendingRecorded(address indexed token, uint256 amount);
+    event SpendingRecorded(address indexed token, uint256 amount, uint256 totalSpent);
 
     constructor() {
         vaultOwner = msg.sender;
@@ -55,9 +56,13 @@ contract IntentVault is IIntentVault {
      */
     function setSpendingCap(address token, uint256 cap) external onlyOwner {
         require(token != address(0), "IntentVault: invalid token address");
+        uint256 previousSpent = spentAmounts[token];
         spendingCaps[token] = cap;
         spentAmounts[token] = 0;
         emit SpendingCapSet(token, cap);
+        if (previousSpent > 0) {
+            emit SpendingReset(token, previousSpent);
+        }
     }
 
     function getSpendingCap(address token) external view returns (uint256) {
@@ -106,10 +111,11 @@ contract IntentVault is IIntentVault {
         // Solidity 0.8+ provides automatic overflow protection
         // This addition will revert if spentAmounts[token] + amount > type(uint256).max
         spentAmounts[token] += amount;
+        uint256 totalSpent = spentAmounts[token];
 
         // Verify spending cap is not exceeded
-        require(spentAmounts[token] <= spendingCaps[token], "IntentVault: spending cap exceeded");
-        emit SpendingRecorded(token, amount);
+        require(totalSpent <= spendingCaps[token], "IntentVault: spending cap exceeded");
+        emit SpendingRecorded(token, amount, totalSpent);
     }
 
     function approveProtocol(address protocol) external onlyOwner {
