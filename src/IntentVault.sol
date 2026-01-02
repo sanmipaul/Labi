@@ -61,6 +61,7 @@ contract IntentVault is IIntentVault {
     }
 
     function approveProtocol(address protocol) external onlyOwner {
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         approvedProtocols[protocol] = true;
         emit ProtocolApproved(protocol);
     }
