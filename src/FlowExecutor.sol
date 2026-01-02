@@ -75,9 +75,9 @@ contract FlowExecutor is Ownable {
      * @notice Only the contract owner can unregister triggers
      */
     function unregisterTrigger(uint8 triggerType) external onlyOwner {
-        require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
+        require(triggerType > 0 && triggerType <= 2, "FlowExecutor: invalid trigger type");
         address oldTrigger = address(triggerContracts[triggerType]);
-        require(oldTrigger != address(0), "Trigger not registered");
+        require(oldTrigger != address(0), "FlowExecutor: trigger not registered");
         delete triggerContracts[triggerType];
         emit TriggerUnregistered(triggerType, oldTrigger);
     }
@@ -88,9 +88,9 @@ contract FlowExecutor is Ownable {
      * @notice Only the contract owner can unregister actions
      */
     function unregisterAction(uint8 actionType) external onlyOwner {
-        require(actionType > 0, "Invalid action type");
+        require(actionType > 0, "FlowExecutor: invalid action type");
         address oldAction = address(actionContracts[actionType]);
-        require(oldAction != address(0), "Action not registered");
+        require(oldAction != address(0), "FlowExecutor: action not registered");
         delete actionContracts[actionType];
         emit ActionUnregistered(actionType, oldAction);
     }
