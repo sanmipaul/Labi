@@ -51,6 +51,10 @@ contract IntentVault is IIntentVault {
     /// @notice Emitted when spending is recorded
     event SpendingRecorded(address indexed token, uint256 amount, uint256 totalSpent);
 
+    /**
+     * @dev Constructor sets the deployer as the vault owner
+     * @notice Vault starts in unpaused state
+     */
     constructor() {
         vaultOwner = msg.sender;
         paused = false;
