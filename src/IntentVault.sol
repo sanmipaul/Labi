@@ -44,6 +44,7 @@ contract IntentVault is IIntentVault {
     }
 
     function getSpendingCap(address token) external view returns (uint256) {
+        require(token != address(0), "IntentVault: token address is zero");
         return spendingCaps[token];
     }
 
