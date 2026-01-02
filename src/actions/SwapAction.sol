@@ -43,6 +43,10 @@ contract SwapAction is IAction, ReentrancyGuard {
         uint256 amountOut
     );
 
+    /**
+     * @dev Returns the action type identifier
+     * @return uint8 The action type (1 for swap actions)
+     */
     function actionType() external pure returns (uint8) {
         return 1;
     }
