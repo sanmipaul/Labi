@@ -32,10 +32,12 @@ contract FlowExecutor is Ownable {
      * @param triggerType The type identifier for the trigger (1-2)
      * @param triggerContract Address of the trigger contract to register
      * @notice Only the contract owner can register triggers
+     * @notice This will revert if a trigger is already registered for this type
      */
     function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
         require(triggerContract != address(0), "Invalid trigger contract");
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
+        require(address(triggerContracts[triggerType]) == address(0), "Trigger already registered");
         triggerContracts[triggerType] = ITrigger(triggerContract);
         emit TriggerRegistered(triggerType, triggerContract);
     }
