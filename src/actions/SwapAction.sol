@@ -25,6 +25,19 @@ interface IUniswapV2Router {
  * @title SwapAction
  * @notice Executes token swaps with slippage protection
  * @dev Implements configurable minimum slippage tolerance to protect users from MEV
+ *
+ * Security Features:
+ * - Enforces minimum slippage tolerance (default: 0.5%)
+ * - Prevents users from setting amountOutMin to 0 or dangerously low values
+ * - Configurable slippage bounds (min and max)
+ * - Emits events when slippage protection is triggered
+ * - Only owner can modify slippage parameters
+ *
+ * Slippage Calculation:
+ * - Uses basis points (bp) where 10000 bp = 100%
+ * - minSlippageBps: Minimum acceptable slippage (default: 50 bp = 0.5%)
+ * - maxSlippageBps: Maximum allowed slippage (default: 500 bp = 5%)
+ * - calculatedMinOutput = amountIn * (10000 - minSlippageBps) / 10000
  */
 contract SwapAction is IAction, Ownable {
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
