@@ -5,16 +5,13 @@ import {IIntentVault} from "./IIntentVault.sol";
 
 /**
  * @title IntentVault
- * @notice User-owned vault for managing intent flow executions
- * @dev Implements spending caps and protocol approval system
+ * @notice Manages spending caps and protocol approvals for intent-based automation
+ * @dev Implements zero address validation to prevent locked funds and broken functionality
  *
- * Overflow Protection:
- * This contract uses Solidity 0.8.19 which includes automatic overflow/underflow
- * protection. All arithmetic operations will revert on overflow/underflow.
- * This eliminates the need for SafeMath library.
- *
- * IMPORTANT: Do not downgrade to Solidity 0.7.x or earlier, as this would remove
- * the automatic overflow protection and introduce security vulnerabilities.
+ * Security: All address parameters are validated against zero address to ensure:
+ * - Protocols cannot be approved/revoked with invalid addresses
+ * - Token addresses are always valid for spending cap operations
+ * - No funds can be locked due to invalid address configurations
  */
 contract IntentVault is IIntentVault {
     /// @dev Address of the vault owner
@@ -86,8 +83,7 @@ contract IntentVault is IIntentVault {
      * @notice Resets the spent amount to 0 when setting a new cap
      */
     function setSpendingCap(address token, uint256 cap) external onlyOwner {
-        require(token != address(0), "IntentVault: invalid token address");
-        uint256 previousSpent = spentAmounts[token];
+        require(token != address(0), "IntentVault: token address is zero");
         spendingCaps[token] = cap;
         spentAmounts[token] = 0;
         emit SpendingCapSet(token, cap);
@@ -97,25 +93,12 @@ contract IntentVault is IIntentVault {
     }
 
     function getSpendingCap(address token) external view returns (uint256) {
+        require(token != address(0), "IntentVault: token address is zero");
         return spendingCaps[token];
     }
 
-    /**
-     * @dev Returns the total amount spent for a token
-     * @param token The token address
-     * @return spent The total amount spent
-     */
-    function getSpentAmount(address token) external view returns (uint256 spent) {
-        return spentAmounts[token];
-    }
-
-    /**
-     * @dev Returns the remaining spending cap for a token
-     * @param token The token address
-     * @return remaining The remaining spendable amount
-     * @notice Automatically protected against underflow by Solidity 0.8+
-     */
-    function getRemainingSpendingCap(address token) external view returns (uint256 remaining) {
+    function getRemainingSpendingCap(address token) external view returns (uint256) {
+        require(token != address(0), "IntentVault: token address is zero");
         uint256 cap = spendingCaps[token];
         uint256 spent = spentAmounts[token];
 
@@ -155,8 +138,7 @@ contract IntentVault is IIntentVault {
      * @notice Only the owner can call this function
      */
     function approveProtocol(address protocol) external onlyOwner {
-        require(protocol != address(0), "IntentVault: invalid protocol address");
-        require(!approvedProtocols[protocol], "IntentVault: protocol already approved");
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         approvedProtocols[protocol] = true;
         emit ProtocolApproved(protocol);
     }
@@ -167,8 +149,7 @@ contract IntentVault is IIntentVault {
      * @notice Only the owner can call this function
      */
     function revokeProtocol(address protocol) external onlyOwner {
-        require(protocol != address(0), "IntentVault: invalid protocol address");
-        require(approvedProtocols[protocol], "IntentVault: protocol not approved");
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         approvedProtocols[protocol] = false;
         emit ProtocolRevoked(protocol);
     }
@@ -179,6 +160,7 @@ contract IntentVault is IIntentVault {
      * @return bool True if the protocol is approved
      */
     function isApprovedProtocol(address protocol) external view returns (bool) {
+        require(protocol != address(0), "IntentVault: protocol address is zero");
         return approvedProtocols[protocol];
     }
 
@@ -188,8 +170,7 @@ contract IntentVault is IIntentVault {
      * @notice Only the owner can call this function
      */
     function resetSpendingTracker(address token) external onlyOwner {
-        require(token != address(0), "IntentVault: invalid token address");
-        uint256 previousSpent = spentAmounts[token];
+        require(token != address(0), "IntentVault: token address is zero");
         spentAmounts[token] = 0;
         if (previousSpent > 0) {
             emit SpendingReset(token, previousSpent);

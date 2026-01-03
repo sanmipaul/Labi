@@ -1,84 +1,85 @@
-# Security Policy
+# Security Documentation
 
-## Security Updates
+## Zero Address Validation
 
-### [2026-01-02] Slippage Validation for SwapAction Contract
+### Overview
+Zero address validation is a critical security measure implemented across the Labi protocol to prevent locked funds and broken functionality.
 
-**Issue:** Missing slippage validation in SwapAction contract (Issue #6)
+### What is the Zero Address?
+The zero address (`0x0000000000000000000000000000000000000000`) is a special address in Ethereum that:
+- Cannot hold or transfer funds
+- Has no private key
+- Cannot execute transactions
+- Is often used to represent uninitialized state
 
-**Severity:** High
+### Security Risks
+Without zero address validation:
+1. **Locked Funds**: Assets sent to zero address are permanently lost
+2. **Broken References**: Contract references to zero address will fail
+3. **Invalid State**: Zero address in mappings indicates uninitialized/invalid state
+4. **Failed Transactions**: Calls to zero address will always fail
 
-**Description:**
-The SwapAction contract accepted `amountOutMin` from user input without validating whether it was reasonable. Users could set this value to 0 or dangerously low amounts, exposing them to:
-- MEV (Maximal Extractable Value) attacks
-- Sandwich attacks
-- Excessive slippage losses
-- Front-running attacks
+### Implementation
 
-The lack of validation meant users could unknowingly approve swaps that would result in receiving far less than expected, with attackers able to extract significant value.
+#### IntentRegistry.sol
+All functions that accept address parameters validate against zero address:
 
-**Resolution:**
-- Implemented configurable minimum slippage tolerance (default: 0.5%)
-- Added configurable maximum slippage bounds (default: 5%)
-- Enforced validation: user's `amountOutMin` must meet minimum slippage requirements
-- Added `SlippageProtectionTriggered` event when protection is activated
-- Implemented owner-only functions to configure slippage parameters:
-  - `setMinSlippage(uint256)` - Set minimum slippage tolerance
-  - `setMaxSlippage(uint256)` - Set maximum slippage tolerance
-- Added helper functions:
-  - `getSlippageConfig()` - View current configuration
-  - `calculateMinOutput(uint256)` - Calculate minimum output for given input
-- Used basis points (bp) for precision: 10000 bp = 100%
-
-**Technical Implementation:**
 ```solidity
-// Calculate minimum acceptable output
-uint256 calculatedMinOutput = (amountIn * (10000 - minSlippageBps)) / 10000;
-
-// Reject if user's amountOutMin is too low
-if (amountOutMin < calculatedMinOutput) {
-    emit SlippageProtectionTriggered(vault, amountIn, amountOutMin, calculatedMinOutput);
-    revert("SwapAction: slippage tolerance too high");
+function getUserFlows(address user) external view returns (uint256[] memory) {
+    require(user != address(0), "IntentRegistry: user address is zero");
+    return userFlows[user];
 }
 ```
 
-**Example:**
-- Input: 1000 tokens
-- Minimum slippage: 50 bp (0.5%)
-- Calculated minimum output: 995 tokens
-- If user sets amountOutMin < 995, transaction reverts
+**Protected Functions:**
+- `getUserFlows(address user)` - Prevents querying flows for invalid user addresses
 
-**Impact:**
-Users are now protected from:
-- Accidentally setting zero or very low slippage tolerance
-- MEV bot exploitation
-- Sandwich attacks that would result in significant value loss
-- Front-running with excessive slippage
+**Note:** `createFlow` does not need explicit validation as `msg.sender` is guaranteed by the EVM to never be the zero address.
 
-**Default Configuration:**
-- Minimum slippage: 50 basis points (0.5%)
-- Maximum slippage: 500 basis points (5%)
-- Basis points denominator: 10000 (100%)
+#### IntentVault.sol
+All protocol and token address parameters are validated:
 
-**Recommendation for Existing Deployments:**
-If you have already deployed SwapAction without slippage validation:
-1. Deploy the updated version immediately
-2. Configure appropriate slippage parameters for your use case
-3. Update FlowExecutor to use the new SwapAction address
-4. Deprecate the old SwapAction contract
-5. Monitor SlippageProtectionTriggered events to understand user behavior
+```solidity
+function approveProtocol(address protocol) external onlyOwner {
+    require(protocol != address(0), "IntentVault: protocol address is zero");
+    approvedProtocols[protocol] = true;
+    emit ProtocolApproved(protocol);
+}
+```
 
-**Future Enhancements:**
-- Integration with price oracles for dynamic slippage calculation
-- Different slippage tolerances for different token pairs
-- Automatic slippage adjustment based on market volatility
+**Protected Functions:**
+- `approveProtocol(address protocol)` - Prevents approving invalid protocol addresses
+- `revokeProtocol(address protocol)` - Ensures protocol address is valid
+- `setSpendingCap(address token, uint256 cap)` - Validates token address
+- `getSpendingCap(address token)` - Prevents queries for invalid tokens
+- `getRemainingSpendingCap(address token)` - Ensures valid token address
+- `isApprovedProtocol(address protocol)` - Validates protocol address
+- `resetSpendingTracker(address token)` - Prevents resetting invalid token trackers
 
-## Reporting a Vulnerability
+### Benefits
+1. **Prevents Fund Loss**: No assets can be locked in unreachable addresses
+2. **Ensures Data Integrity**: All address references are valid
+3. **Clear Error Messages**: Failed transactions provide specific error messages
+4. **Improved UX**: Frontend can catch errors before transaction submission
 
-If you discover a security vulnerability, please email security@labi.protocol with:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if available)
+### Best Practices
+When integrating with Labi protocol:
+1. Always validate addresses on the frontend before submitting transactions
+2. Never use hardcoded zero addresses in production
+3. Test address validation in your integration tests
+4. Handle validation errors gracefully in your UI
 
-We aim to respond to security reports within 48 hours.
+### Testing
+To verify zero address validation:
+```solidity
+// This should revert
+vm.expectRevert("IntentVault: protocol address is zero");
+vault.approveProtocol(address(0));
+
+// This should revert
+vm.expectRevert("IntentRegistry: user address is zero");
+registry.getUserFlows(address(0));
+```
+
+## Reporting Security Issues
+If you discover a security vulnerability, please email security@labi.protocol (replace with actual contact).

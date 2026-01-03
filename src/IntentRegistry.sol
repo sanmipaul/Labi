@@ -1,7 +1,18 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IIntentRegistry} from "./IIntentRegistry.sol";
 
+/**
+ * @title IntentRegistry
+ * @notice Registry for managing user intent flows
+ * @dev Implements zero address validation to prevent locked funds and broken functionality
+ *
+ * Security: All address parameters are validated against zero address to ensure:
+ * - Flows cannot be created for invalid addresses
+ * - Flow ownership is always valid
+ * - No funds can be locked in unreachable flows
+ */
 contract IntentRegistry is IIntentRegistry {
     uint256 private flowCounter;
     
@@ -21,6 +32,16 @@ contract IntentRegistry is IIntentRegistry {
         flowCounter = 0;
     }
 
+    /**
+     * @notice Create a new intent flow
+     * @param triggerType The type of trigger (1-2)
+     * @param triggerValue The trigger threshold value
+     * @param triggerData Encoded trigger configuration data
+     * @param conditionData Encoded condition logic data
+     * @param actionData Encoded action execution data
+     * @return flowId The ID of the newly created flow
+     * @dev Flow creator (msg.sender) is automatically validated as non-zero by EVM
+     */
     function createFlow(
         uint8 triggerType,
         uint256 triggerValue,
@@ -29,7 +50,7 @@ contract IntentRegistry is IIntentRegistry {
         bytes calldata actionData
     ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
-        
+
         uint256 flowId = ++flowCounter;
         
         flows[flowId] = IntentFlow({
@@ -51,31 +72,61 @@ contract IntentRegistry is IIntentRegistry {
         return flowId;
     }
 
+    /**
+     * @notice Retrieve a specific intent flow by ID
+     * @param flowId The ID of the flow to retrieve
+     * @return The IntentFlow struct containing all flow data
+     * @dev Validates flow existence by checking if the flow owner is not zero address
+     */
     function getFlow(uint256 flowId) external view returns (IntentFlow memory) {
         require(flows[flowId].user != address(0), "Flow does not exist");
         return flows[flowId];
     }
 
+    /**
+     * @notice Get all flow IDs owned by a specific user
+     * @param user The address of the user to query flows for
+     * @return An array of flow IDs owned by the user
+     * @dev Validates that user address is not zero to prevent invalid queries
+     */
     function getUserFlows(address user) external view returns (uint256[] memory) {
+        require(user != address(0), "IntentRegistry: user address is zero");
         return userFlows[user];
     }
 
+    /**
+     * @notice Update the active status of a flow
+     * @param flowId The ID of the flow to update
+     * @param active The new active status (true = active, false = inactive)
+     * @dev Only the flow owner can update the status
+     */
     function updateFlowStatus(uint256 flowId, bool active) external {
         require(flows[flowId].user == msg.sender, "Only flow owner can update");
         flows[flowId].active = active;
         emit FlowStatusUpdated(flowId, active);
     }
 
+    /**
+     * @notice Record the execution of a flow
+     * @param flowId The ID of the flow that was executed
+     * @dev Validates flow existence and active status before recording
+     * @dev Updates lastExecutedAt timestamp and increments executionCount
+     */
     function recordExecution(uint256 flowId) external {
         require(flows[flowId].user != address(0), "Flow does not exist");
         require(flows[flowId].active, "Flow is not active");
-        
+
         flows[flowId].lastExecutedAt = block.timestamp;
         flows[flowId].executionCount++;
-        
+
         emit FlowExecuted(flowId, block.timestamp);
     }
 
+    /**
+     * @notice Get the current flow counter
+     * @return The total number of flows created
+     * @dev This represents the highest flow ID assigned
+     */
     function getFlowCounter() external view returns (uint256) {
         return flowCounter;
     }
