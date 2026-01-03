@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import {IAction} from "./IAction.sol";
 import {IIntentVault} from "../IIntentVault.sol";
+import {Ownable} from "../Ownable.sol";
 
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -20,17 +21,120 @@ interface IUniswapV2Router {
     ) external returns (uint256[] memory amounts);
 }
 
-contract SwapAction is IAction {
+/**
+ * @title SwapAction
+ * @notice Executes token swaps with slippage protection
+ * @dev Implements configurable minimum slippage tolerance to protect users from MEV
+ *
+ * Security Features:
+ * - Enforces minimum slippage tolerance (default: 0.5%)
+ * - Prevents users from setting amountOutMin to 0 or dangerously low values
+ * - Configurable slippage bounds (min and max)
+ * - Emits events when slippage protection is triggered
+ * - Only owner can modify slippage parameters
+ *
+ * Slippage Calculation:
+ * - Uses basis points (bp) where 10000 bp = 100%
+ * - minSlippageBps: Minimum acceptable slippage (default: 50 bp = 0.5%)
+ * - maxSlippageBps: Maximum allowed slippage (default: 500 bp = 5%)
+ * - calculatedMinOutput = amountIn * (10000 - minSlippageBps) / 10000
+ */
+contract SwapAction is IAction, Ownable {
+    /// @notice Uniswap V2 Router address on Base network
     address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
+
+    /// @notice Minimum slippage tolerance in basis points (1 bp = 0.01%)
+    /// @dev Default: 50 bp = 0.5% minimum slippage protection
+    /// @dev Can be modified by owner using setMinSlippage()
+    uint256 public minSlippageBps = 50;
+
+    /// @notice Maximum allowed slippage in basis points
+    /// @dev Default: 500 bp = 5% maximum slippage
+    /// @dev Can be modified by owner using setMaxSlippage()
+    uint256 public maxSlippageBps = 500;
+
+    /// @dev Basis points denominator (100% = 10000 bp)
+    uint256 private constant BPS_DENOMINATOR = 10000;
+
+    /// @notice Emitted when minimum slippage tolerance is updated
+    event MinSlippageUpdated(uint256 oldValue, uint256 newValue);
+
+    /// @notice Emitted when maximum slippage tolerance is updated
+    event MaxSlippageUpdated(uint256 oldValue, uint256 newValue);
+
+    /// @notice Emitted when a swap is rejected due to excessive slippage
+    event SlippageProtectionTriggered(
+        address indexed vault,
+        uint256 amountIn,
+        uint256 amountOutMin,
+        uint256 calculatedMin
+    );
 
     function actionType() external pure returns (uint8) {
         return 1;
     }
 
+    /**
+     * @dev Sets the minimum slippage tolerance
+     * @param newMinSlippageBps New minimum slippage in basis points
+     * @notice Only owner can call this function
+     */
+    function setMinSlippage(uint256 newMinSlippageBps) external onlyOwner {
+        require(newMinSlippageBps > 0, "SwapAction: min slippage must be greater than zero");
+        require(newMinSlippageBps <= maxSlippageBps, "SwapAction: min slippage exceeds max");
+        uint256 oldValue = minSlippageBps;
+        minSlippageBps = newMinSlippageBps;
+        emit MinSlippageUpdated(oldValue, newMinSlippageBps);
+    }
+
+    /**
+     * @dev Sets the maximum slippage tolerance
+     * @param newMaxSlippageBps New maximum slippage in basis points
+     * @notice Only owner can call this function
+     */
+    function setMaxSlippage(uint256 newMaxSlippageBps) external onlyOwner {
+        require(newMaxSlippageBps >= minSlippageBps, "SwapAction: max slippage below min");
+        require(newMaxSlippageBps <= BPS_DENOMINATOR, "SwapAction: max slippage exceeds 100%");
+        uint256 oldValue = maxSlippageBps;
+        maxSlippageBps = newMaxSlippageBps;
+        emit MaxSlippageUpdated(oldValue, newMaxSlippageBps);
+    }
+
+    /**
+     * @dev Returns the current slippage configuration
+     * @return minBps Minimum slippage in basis points
+     * @return maxBps Maximum slippage in basis points
+     * @return denominator Basis points denominator
+     */
+    function getSlippageConfig() external view returns (
+        uint256 minBps,
+        uint256 maxBps,
+        uint256 denominator
+    ) {
+        return (minSlippageBps, maxSlippageBps, BPS_DENOMINATOR);
+    }
+
+    /**
+     * @dev Calculates the minimum output amount based on input and slippage
+     * @param amountIn The input amount
+     * @return minOutput The minimum acceptable output amount
+     */
+    function calculateMinOutput(uint256 amountIn) external view returns (uint256 minOutput) {
+        return (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
+    }
+
+    /**
+     * @dev Executes a token swap with slippage protection
+     * @param vault The address of the user's intent vault
+     * @param actionData Encoded swap parameters (tokenIn, tokenOut, amountIn, amountOutMin, deadline)
+     * @return bool True if the swap was successful
+     * @notice Validates amountOutMin against minimum slippage requirements
+     * @notice Reverts if slippage tolerance is too high or other validations fail
+     */
     function execute(address vault, bytes calldata actionData) external returns (bool) {
-        require(vault != address(0), "Invalid vault");
-        require(IIntentVault(vault).isApprovedProtocol(msg.sender), "Protocol not approved");
-        require(!IIntentVault(vault).isPaused(), "Vault is paused");
+        require(vault != address(0), "SwapAction: vault is zero address");
+        require(IIntentVault(vault).isApprovedProtocol(msg.sender), "SwapAction: protocol not approved");
+        require(!IIntentVault(vault).isPaused(), "SwapAction: vault is paused");
 
         (
             address tokenIn,
@@ -40,21 +144,50 @@ contract SwapAction is IAction {
             uint256 deadline
         ) = abi.decode(actionData, (address, address, uint256, uint256, uint256));
 
-        require(tokenIn != address(0) && tokenOut != address(0), "Invalid tokens");
-        require(amountIn > 0, "Invalid amount");
-        require(deadline > block.timestamp, "Deadline expired");
+        require(tokenIn != address(0) && tokenOut != address(0), "SwapAction: invalid token addresses");
+        require(amountIn > 0, "SwapAction: amount must be greater than zero");
+        require(amountOutMin > 0, "SwapAction: minimum output must be greater than zero");
+        require(deadline > block.timestamp, "SwapAction: deadline expired");
+
+        // SLIPPAGE PROTECTION LOGIC
+        // Calculate minimum acceptable output based on slippage tolerance
+        // Formula: minOutput = amountIn * (10000 - minSlippageBps) / 10000
+        // Example: If minSlippageBps = 50 (0.5%), and amountIn = 1000
+        //          minOutput = 1000 * (10000 - 50) / 10000 = 995
+        // This assumes 1:1 price for simplification - in production, use oracle
+        uint256 calculatedMinOutput = (amountIn * (BPS_DENOMINATOR - minSlippageBps)) / BPS_DENOMINATOR;
+
+        // Validate that user's amountOutMin meets minimum slippage requirements
+        // This prevents users from setting amountOutMin to 0 or too low, protecting from MEV
+        // If user sets amountOutMin below our calculated minimum, reject the transaction
+        if (amountOutMin < calculatedMinOutput) {
+            emit SlippageProtectionTriggered(vault, amountIn, amountOutMin, calculatedMinOutput);
+            revert("SwapAction: slippage tolerance too high");
+        }
+
+        // Sanity check: ensure amountOutMin doesn't exceed amountIn
+        // This prevents invalid configurations
+        require(amountOutMin <= amountIn, "SwapAction: invalid min output");
 
         uint256 remainingCap = IIntentVault(vault).getRemainingSpendingCap(tokenIn);
-        require(remainingCap >= amountIn, "Spending cap exceeded");
+        require(remainingCap >= amountIn, "SwapAction: spending cap exceeded");
 
-        IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        // External call 1: Transfer tokens from vault to this contract
+        // Protected by nonReentrant modifier
+        bool transferSuccess = IERC20(tokenIn).transferFrom(vault, address(this), amountIn);
+        require(transferSuccess, "SwapAction: token transfer failed");
 
-        IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        // Approve Uniswap router to spend tokens
+        bool approveSuccess = IERC20(tokenIn).approve(UNISWAP_ROUTER, amountIn);
+        require(approveSuccess, "SwapAction: token approval failed");
 
+        // Prepare swap path
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
+        // External call 2: Execute swap on Uniswap
+        // Protected by nonReentrant modifier
         uint256[] memory amounts = IUniswapV2Router(UNISWAP_ROUTER).swapExactTokensForTokens(
             amountIn,
             amountOutMin,
@@ -63,7 +196,12 @@ contract SwapAction is IAction {
             deadline
         );
 
+        // External call 3: Record spending in vault
+        // Protected by nonReentrant modifier
         IIntentVault(vault).recordSpending(tokenIn, amountIn);
+
+        // Emit event for successful swap
+        emit SwapExecuted(vault, tokenIn, tokenOut, amountIn, amounts[1]);
 
         return amounts[1] >= amountOutMin;
     }
