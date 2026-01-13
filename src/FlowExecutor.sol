@@ -6,6 +6,7 @@ import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract FlowExecutor {
     IIntentRegistry public registry;
