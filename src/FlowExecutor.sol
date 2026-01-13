@@ -49,6 +49,13 @@ contract FlowExecutor is Ownable, Pausable {
         emit TriggerRegistered(triggerType, triggerContract);
     }
 
+    /**
+     * @notice Registers a new action contract for a specific action type
+     * @dev Only callable by contract owner. Used to configure available action types
+     * for flow execution.
+     * @param actionType The numeric identifier for the action type
+     * @param actionContract The address of the action contract implementation
+     */
     function registerAction(uint8 actionType, address actionContract) external onlyOwner {
         require(actionContract != address(0), "Invalid action contract");
         require(actionType > 0, "Invalid action type");
