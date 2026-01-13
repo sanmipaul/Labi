@@ -8,6 +8,18 @@ import {IAction} from "./actions/IAction.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+ * @title FlowExecutor
+ * @notice Executes intent-based automation flows with emergency pause capability
+ * @dev Implements Ownable and Pausable patterns for access control and emergency stops.
+ * The contract can be paused by the owner to prevent all flow executions during critical
+ * situations, providing an emergency stop mechanism for the protocol.
+ *
+ * Security Features:
+ * - Pausable: All flow executions can be halted via pause() during emergencies
+ * - Ownable: Only the contract owner can pause/unpause and manage registrations
+ * - Access Control: Trigger and action registration restricted to owner
+ */
 contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
     
