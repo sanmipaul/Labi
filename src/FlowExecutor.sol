@@ -138,10 +138,12 @@ contract FlowExecutor is Ownable, Pausable {
         if (token == address(0)) {
             return address(vault).balance >= minBalance;
         } else {
-            interface IERC20 {
-                function balanceOf(address account) external view returns (uint256);
-            }
-            return IERC20(token).balanceOf(address(vault)) >= minBalance;
+            (bool success, bytes memory data) = token.staticcall(
+                abi.encodeWithSignature("balanceOf(address)", address(vault))
+            );
+            require(success, "Balance check failed");
+            uint256 balance = abi.decode(data, (uint256));
+            return balance >= minBalance;
         }
     }
 
