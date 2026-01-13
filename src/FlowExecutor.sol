@@ -1,24 +1,26 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
-import {Ownable} from "./Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title FlowExecutor
- * @notice Executes intent flows by evaluating triggers, conditions, and actions
- * @dev This contract manages the registration of trigger and action contracts
- * and orchestrates the execution of user-defined intent flows.
+ * @notice Executes intent-based automation flows with emergency pause capability
+ * @dev Implements Ownable and Pausable patterns for access control and emergency stops.
+ * The contract can be paused by the owner to prevent all flow executions during critical
+ * situations, providing an emergency stop mechanism for the protocol.
  *
- * Security Model:
- * - Only the contract owner can register/unregister triggers and actions
- * - Registered contracts cannot be accidentally overwritten
- * - Anyone can attempt to execute flows, but execution is subject to strict validation
- * - All critical operations emit events for transparency
+ * Security Features:
+ * - Pausable: All flow executions can be halted via pause() during emergencies
+ * - Ownable: Only the contract owner can pause/unpause and manage registrations
+ * - Access Control: Trigger and action registration restricted to owner
  */
-contract FlowExecutor is Ownable {
+contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
     
     mapping(uint256 => ITrigger) public triggerContracts;
@@ -27,75 +29,48 @@ contract FlowExecutor is Ownable {
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
-    event TriggerUnregistered(uint8 indexed triggerType, address triggerContract);
-    event ActionUnregistered(uint8 indexed actionType, address actionContract);
 
-    /**
-     * @dev Constructor sets the registry address and initializes ownership
-     * @param registryAddress Address of the IntentRegistry contract
-     */
-    constructor(address registryAddress) Ownable() {
+    constructor(address registryAddress) Ownable(msg.sender) {
         require(registryAddress != address(0), "Invalid registry");
         registry = IIntentRegistry(registryAddress);
     }
 
     /**
-     * @dev Registers a trigger contract for a specific trigger type
-     * @param triggerType The type identifier for the trigger (1-2)
-     * @param triggerContract Address of the trigger contract to register
-     * @notice Only the contract owner can register triggers
-     * @notice This will revert if a trigger is already registered for this type
+     * @notice Registers a new trigger contract for a specific trigger type
+     * @dev Only callable by contract owner. Used to configure available trigger types
+     * for flow execution.
+     * @param triggerType The numeric identifier for the trigger type (1-2)
+     * @param triggerContract The address of the trigger contract implementation
      */
     function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
-        require(triggerContract != address(0), "FlowExecutor: trigger contract is zero address");
-        require(triggerType > 0 && triggerType <= 2, "FlowExecutor: invalid trigger type");
-        require(address(triggerContracts[triggerType]) == address(0), "FlowExecutor: trigger already registered");
+        require(triggerContract != address(0), "Invalid trigger contract");
+        require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         triggerContracts[triggerType] = ITrigger(triggerContract);
         emit TriggerRegistered(triggerType, triggerContract);
     }
 
     /**
-     * @dev Registers an action contract for a specific action type
-     * @param actionType The type identifier for the action
-     * @param actionContract Address of the action contract to register
-     * @notice Only the contract owner can register actions
-     * @notice This will revert if an action is already registered for this type
+     * @notice Registers a new action contract for a specific action type
+     * @dev Only callable by contract owner. Used to configure available action types
+     * for flow execution.
+     * @param actionType The numeric identifier for the action type
+     * @param actionContract The address of the action contract implementation
      */
     function registerAction(uint8 actionType, address actionContract) external onlyOwner {
-        require(actionContract != address(0), "FlowExecutor: action contract is zero address");
-        require(actionType > 0, "FlowExecutor: invalid action type");
-        require(address(actionContracts[actionType]) == address(0), "FlowExecutor: action already registered");
+        require(actionContract != address(0), "Invalid action contract");
+        require(actionType > 0, "Invalid action type");
         actionContracts[actionType] = IAction(actionContract);
         emit ActionRegistered(actionType, actionContract);
     }
 
     /**
-     * @dev Unregisters a trigger contract for a specific trigger type
-     * @param triggerType The type identifier for the trigger to unregister
-     * @notice Only the contract owner can unregister triggers
+     * @notice Executes an intent flow if all conditions are met
+     * @dev Can only be called when contract is not paused. Checks vault pause state,
+     * trigger conditions, and custom conditions before executing the associated action.
+     * @param flowId The ID of the flow to execute
+     * @return bool Returns true if execution succeeds, false otherwise
      */
-    function unregisterTrigger(uint8 triggerType) external onlyOwner {
-        require(triggerType > 0 && triggerType <= 2, "FlowExecutor: invalid trigger type");
-        address oldTrigger = address(triggerContracts[triggerType]);
-        require(oldTrigger != address(0), "FlowExecutor: trigger not registered");
-        delete triggerContracts[triggerType];
-        emit TriggerUnregistered(triggerType, oldTrigger);
-    }
-
-    /**
-     * @dev Unregisters an action contract for a specific action type
-     * @param actionType The type identifier for the action to unregister
-     * @notice Only the contract owner can unregister actions
-     */
-    function unregisterAction(uint8 actionType) external onlyOwner {
-        require(actionType > 0, "FlowExecutor: invalid action type");
-        address oldAction = address(actionContracts[actionType]);
-        require(oldAction != address(0), "FlowExecutor: action not registered");
-        delete actionContracts[actionType];
-        emit ActionUnregistered(actionType, oldAction);
-    }
-
-    function executeFlow(uint256 flowId) external returns (bool) {
+    function executeFlow(uint256 flowId) external whenNotPaused returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
         require(flow.active, "Flow is not active");
@@ -163,10 +138,12 @@ contract FlowExecutor is Ownable {
         if (token == address(0)) {
             return address(vault).balance >= minBalance;
         } else {
-            interface IERC20 {
-                function balanceOf(address account) external view returns (uint256);
-            }
-            return IERC20(token).balanceOf(address(vault)) >= minBalance;
+            (bool success, bytes memory data) = token.staticcall(
+                abi.encodeWithSignature("balanceOf(address)", address(vault))
+            );
+            require(success, "Balance check failed");
+            uint256 balance = abi.decode(data, (uint256));
+            return balance >= minBalance;
         }
     }
 
