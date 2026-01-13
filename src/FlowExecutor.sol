@@ -18,7 +18,7 @@ contract FlowExecutor is Ownable, Pausable {
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
 
-    constructor(address registryAddress) {
+    constructor(address registryAddress) Ownable(msg.sender) {
         require(registryAddress != address(0), "Invalid registry");
         registry = IIntentRegistry(registryAddress);
     }
