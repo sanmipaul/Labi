@@ -49,6 +49,13 @@ contract FlowExecutor is Ownable, Pausable {
         emit ActionRegistered(actionType, actionContract);
     }
 
+    /**
+     * @notice Executes an intent flow if all conditions are met
+     * @dev Can only be called when contract is not paused. Checks vault pause state,
+     * trigger conditions, and custom conditions before executing the associated action.
+     * @param flowId The ID of the flow to execute
+     * @return bool Returns true if execution succeeds, false otherwise
+     */
     function executeFlow(uint256 flowId) external whenNotPaused returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
