@@ -35,6 +35,13 @@ contract FlowExecutor is Ownable, Pausable {
         registry = IIntentRegistry(registryAddress);
     }
 
+    /**
+     * @notice Registers a new trigger contract for a specific trigger type
+     * @dev Only callable by contract owner. Used to configure available trigger types
+     * for flow execution.
+     * @param triggerType The numeric identifier for the trigger type (1-2)
+     * @param triggerContract The address of the trigger contract implementation
+     */
     function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
         require(triggerContract != address(0), "Invalid trigger contract");
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
