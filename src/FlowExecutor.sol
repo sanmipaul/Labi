@@ -8,7 +8,7 @@ import {IAction} from "./actions/IAction.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract FlowExecutor {
+contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
     
     mapping(uint256 => ITrigger) public triggerContracts;
