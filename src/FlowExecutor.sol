@@ -172,4 +172,40 @@ contract FlowExecutor is Ownable, Pausable {
 
         return (true, "Ready for execution");
     }
+
+    /**
+     * @dev Checks if a trigger type is registered
+     * @param triggerType The type identifier to check
+     * @return bool True if the trigger is registered
+     */
+    function isTriggerRegistered(uint8 triggerType) external view returns (bool) {
+        return address(triggerContracts[triggerType]) != address(0);
+    }
+
+    /**
+     * @dev Checks if an action type is registered
+     * @param actionType The type identifier to check
+     * @return bool True if the action is registered
+     */
+    function isActionRegistered(uint8 actionType) external view returns (bool) {
+        return address(actionContracts[actionType]) != address(0);
+    }
+
+    /**
+     * @dev Gets the registered trigger contract address
+     * @param triggerType The type identifier to query
+     * @return address The address of the registered trigger contract
+     */
+    function getTriggerContract(uint8 triggerType) external view returns (address) {
+        return address(triggerContracts[triggerType]);
+    }
+
+    /**
+     * @dev Gets the registered action contract address
+     * @param actionType The type identifier to query
+     * @return address The address of the registered action contract
+     */
+    function getActionContract(uint8 actionType) external view returns (address) {
+        return address(actionContracts[actionType]);
+    }
 }
