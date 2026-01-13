@@ -37,7 +37,7 @@ contract FlowExecutor is Ownable, Pausable {
         emit ActionRegistered(actionType, actionContract);
     }
 
-    function executeFlow(uint256 flowId) external returns (bool) {
+    function executeFlow(uint256 flowId) external whenNotPaused returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
         require(flow.active, "Flow is not active");
