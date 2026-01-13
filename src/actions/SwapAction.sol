@@ -21,7 +21,7 @@ interface IUniswapV2Router {
 }
 
 contract SwapAction is IAction {
-    address public constant UNISWAP_ROUTER = 0x4752ba5DBbc23f44D87826aCB77Cbf34405e94cC;
+    address public constant UNISWAP_ROUTER = 0x4752ba5DbbC23F44D87826acb77CBf34405e94cc;
 
     function actionType() external pure returns (uint8) {
         return 1;
