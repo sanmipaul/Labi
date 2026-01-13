@@ -23,7 +23,7 @@ contract FlowExecutor is Ownable, Pausable {
         registry = IIntentRegistry(registryAddress);
     }
 
-    function registerTrigger(uint8 triggerType, address triggerContract) external {
+    function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
         require(triggerContract != address(0), "Invalid trigger contract");
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         triggerContracts[triggerType] = ITrigger(triggerContract);
