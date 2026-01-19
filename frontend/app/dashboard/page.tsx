@@ -183,54 +183,60 @@ function ExecutionHistorySection() {
         </button>
       </div>
       <div className="space-y-4">
-        {MOCK_HISTORY.map((execution) => (
-          <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
-            <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                execution.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/20' : 
-                execution.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' : 
-                'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20'
-              }`}>
-                {execution.status === 'success' ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : execution.status === 'failed' ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                )}
+        {MOCK_HISTORY.length > 0 ? (
+          MOCK_HISTORY.map((execution) => (
+            <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  execution.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/20' : 
+                  execution.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' : 
+                  'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20'
+                }`}>
+                  {execution.status === 'success' ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : execution.status === 'failed' ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                </div>
+                <div className="text-left">
+                  <h4 className="font-medium text-gray-900 dark:text-white">{execution.label}</h4>
+                  <div className="text-xs text-gray-500">Flow #{execution.flowId}</div>
+                </div>
               </div>
-              <div className="text-left">
-                <h4 className="font-medium text-gray-900 dark:text-white">{execution.label}</h4>
-                <div className="text-xs text-gray-500">Flow #{execution.flowId}</div>
+              <div className="flex items-center gap-6">
+                <div className="text-right flex flex-col items-end gap-1">
+                  <a 
+                    href={`https://etherscan.io/tx/${execution.txHash}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1"
+                  >
+                    {execution.txHash}
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
+                    {execution.status}
+                  </span>
+                  <div className="text-xs text-gray-500">{new Date(execution.timestamp).toLocaleDateString()}</div>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right flex flex-col items-end gap-1">
-                <a 
-                  href={`https://etherscan.io/tx/${execution.txHash}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1"
-                >
-                  {execution.txHash}
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
-                  {execution.status}
-                </span>
-                <div className="text-xs text-gray-500">{new Date(execution.timestamp).toLocaleDateString()}</div>
-              </div>
-            </div>
+          ))
+        ) : (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+            <p className="text-gray-500 dark:text-gray-400">No execution history found.</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
