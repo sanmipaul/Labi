@@ -72,6 +72,27 @@ export function TokenModal({
             </svg>
           </div>
         </div>
+
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">Popular Tokens</div>
+          <div className="flex flex-wrap gap-2">
+            {popularTokensData.map((token) => (
+              <button
+                key={token.symbol}
+                onClick={() => {
+                  onSelect(token);
+                  onClose();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <div className="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[10px] font-bold text-blue-600">
+                  {token.symbol[0]}
+                </div>
+                <span className="text-sm font-medium">{token.symbol}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         
         <div className="max-h-[60vh] overflow-y-auto">
           {filteredTokens.length === 0 ? (
