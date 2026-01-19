@@ -18,6 +18,8 @@ const TOKENS: Token[] = [
   { symbol: 'UNI', name: 'Uniswap', address: '0x2262C56D5AD2397B5100045743D9392264653B78' },
 ];
 
+const POPULAR_TOKENS = ['ETH', 'USDC', 'USDT', 'WBTC'];
+
 export function TokenModal({ 
   isOpen, 
   onClose, 
@@ -34,6 +36,8 @@ export function TokenModal({
     token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     token.address.toLowerCase() === searchQuery.toLowerCase()
   );
+
+  const popularTokensData = TOKENS.filter((t) => POPULAR_TOKENS.includes(t.symbol));
 
   if (!isOpen) return null;
 
