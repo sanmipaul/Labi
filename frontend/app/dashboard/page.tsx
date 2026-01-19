@@ -155,3 +155,29 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+function ExecutionHistorySection() {
+  return (
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+      <h3 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Execution History</h3>
+      <div className="space-y-4">
+        {MOCK_HISTORY.map((execution) => (
+          <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-4">
+              <div className="text-left">
+                <h4 className="font-medium text-gray-900 dark:text-white">{execution.label}</h4>
+                <div className="text-xs text-gray-500">Flow #{execution.flowId}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-900 dark:text-white capitalize">{execution.status}</div>
+                <div className="text-xs text-gray-500">{new Date(execution.timestamp).toLocaleDateString()}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
