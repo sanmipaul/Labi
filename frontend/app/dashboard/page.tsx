@@ -151,6 +151,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="mt-8">
+        <ExecutionHistorySection />
+      </div>
+
       <CreateFlowModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
