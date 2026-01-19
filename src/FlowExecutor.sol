@@ -64,6 +64,23 @@ contract FlowExecutor is Ownable, Pausable {
     }
 
     /**
+     * @notice Executes multiple intent flows in a single transaction
+     * @dev Iterates through flow IDs and attempts execution for each. 
+     * Continues to next flow even if one fails.
+     * @param flowIds Array of flow IDs to execute
+     */
+    function executeFlowsBatch(uint256[] calldata flowIds) external whenNotPaused {
+        for (uint256 i = 0; i < flowIds.length; i++) {
+            try this.executeFlow(flowIds[i]) {
+                // Individual execution results are handled within executeFlow events
+            } catch {
+                // If the call to executeFlow itself reverts (e.g. out of gas for that flow)
+                emit ExecutionAttempted(flowIds[i], false, "Batch execution call reverted");
+            }
+        }
+    }
+
+    /**
      * @notice Executes an intent flow if all conditions are met
      * @dev Can only be called when contract is not paused. Checks vault pause state,
      * trigger conditions, and custom conditions before executing the associated action.
