@@ -100,32 +100,32 @@ contract FlowExecutor is Ownable, Pausable {
             }
         }
 
-        bytes memory actionData = flow.actionData;
-        if (actionData.length == 0) {
-            emit ExecutionAttempted(flowId, false, "No action data");
-            return false;
-        }
-
-        uint8 actionType = 1;
-        IAction actionContract = actionContracts[actionType];
-        require(address(actionContract) != address(0), "Action not registered");
-
-        try actionContract.execute(vaultAddress, actionData) returns (bool success) {
-            if (success) {
-                registry.recordExecution(flowId);
-                emit ExecutionAttempted(flowId, true, "Success");
-                return true;
-            } else {
-                emit ExecutionAttempted(flowId, false, "Action execution failed");
+        for (uint256 i = 0; i < flow.actions.length; i++) {
+            IIntentRegistry.Action memory action = flow.actions[i];
+            IAction actionContract = actionContracts[action.actionType];
+            
+            if (address(actionContract) == address(0)) {
+                emit ExecutionAttempted(flowId, false, "Action not registered");
                 return false;
             }
-        } catch Error(string memory reason) {
-            emit ExecutionAttempted(flowId, false, reason);
-            return false;
-        } catch {
-            emit ExecutionAttempted(flowId, false, "Unknown error");
-            return false;
+
+            try actionContract.execute(vaultAddress, action.actionData) returns (bool success) {
+                if (!success) {
+                    emit ExecutionAttempted(flowId, false, "Action execution failed");
+                    return false;
+                }
+            } catch Error(string memory reason) {
+                emit ExecutionAttempted(flowId, false, reason);
+                return false;
+            } catch {
+                emit ExecutionAttempted(flowId, false, "Unknown error during action execution");
+                return false;
+            }
         }
+
+        registry.recordExecution(flowId);
+        emit ExecutionAttempted(flowId, true, "Success");
+        return true;
     }
 
     function _evaluateCondition(IIntentVault vault, bytes memory conditionData)
