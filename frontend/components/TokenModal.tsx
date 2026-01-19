@@ -25,6 +25,12 @@ export function TokenModal({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
+  const filteredTokens = TOKENS.filter((token) =>
+    token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    token.address.toLowerCase() === searchQuery.toLowerCase()
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -60,7 +66,7 @@ export function TokenModal({
         </div>
         
         <div className="max-h-[60vh] overflow-y-auto">
-          {TOKENS.map((token) => (
+          {filteredTokens.map((token) => (
             <button
               key={token.symbol}
               onClick={() => {
