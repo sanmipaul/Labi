@@ -46,6 +46,12 @@ export default function DashboardPage() {
   const { address, isConnected } = useAccount();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (!isConnected && isModalOpen) {
+      setIsModalOpen(false);
+    }
+  }, [isConnected, isModalOpen]);
+
   // Fetch user flow IDs
   const { data: userFlowIds } = useReadContract({
     address: IntentRegistryAddress,
