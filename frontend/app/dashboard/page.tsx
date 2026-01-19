@@ -161,6 +161,13 @@ export default function DashboardPage() {
 }
 
 function ExecutionHistorySection() {
+  const timeAgo = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
   const getStatusBadge = (status: ExecutionHistory['status']) => {
     switch (status) {
       case 'success':
@@ -227,7 +234,11 @@ function ExecutionHistorySection() {
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
                     {execution.status}
                   </span>
-                  <div className="text-xs text-gray-500">{new Date(execution.timestamp).toLocaleDateString()}</div>
+                  <div className="text-xs text-gray-500 flex gap-2">
+                    <span>{timeAgo(execution.timestamp)}</span>
+                    <span className="text-gray-300 dark:text-gray-700">•</span>
+                    <span>{new Date(execution.timestamp).toLocaleDateString()}</span>
+                  </div>
                 </div>
               </div>
             </div>
