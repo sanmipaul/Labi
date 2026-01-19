@@ -66,26 +66,32 @@ export function TokenModal({
         </div>
         
         <div className="max-h-[60vh] overflow-y-auto">
-          {filteredTokens.map((token) => (
-            <button
-              key={token.symbol}
-              onClick={() => {
-                onSelect(token);
-                onClose();
-              }}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-bold text-blue-600">
-                  {token.symbol[0]}
+          {filteredTokens.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No tokens found
+            </div>
+          ) : (
+            filteredTokens.map((token) => (
+              <button
+                key={token.symbol}
+                onClick={() => {
+                  onSelect(token);
+                  onClose();
+                }}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-bold text-blue-600">
+                    {token.symbol[0]}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-gray-900 dark:text-white">{token.symbol}</div>
+                    <div className="text-xs text-gray-500">{token.name}</div>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <div className="font-medium text-gray-900 dark:text-white">{token.symbol}</div>
-                  <div className="text-xs text-gray-500">{token.name}</div>
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>
