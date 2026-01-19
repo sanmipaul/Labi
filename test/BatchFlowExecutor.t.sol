@@ -15,7 +15,7 @@ contract BatchFlowExecutorTest is Test {
     function setUp() public {
         user = address(this);
         registry = new IntentRegistry();
-        executor = new FlowExecutor(address(registry));
+        executor = new FlowExecutor(address(registry), address(0xDEAD));
         timeTrigger = new TimeTrigger();
 
         executor.registerTrigger(1, address(timeTrigger));
@@ -30,8 +30,8 @@ contract BatchFlowExecutorTest is Test {
         bytes memory conditionData = abi.encode(0, address(0));
         IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](0); // Empty actions for simplicity in trigger test
 
-        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actions);
-        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
 
         uint256[] memory flowIds = new uint256[](2);
         flowIds[0] = flowId1;
@@ -55,8 +55,8 @@ contract BatchFlowExecutorTest is Test {
         bytes memory conditionData = abi.encode(0, address(0));
         IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](0);
 
-        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actions);
-        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
         
         // Make flow2 inactive so it fails
         registry.updateFlowStatus(flowId2, false);

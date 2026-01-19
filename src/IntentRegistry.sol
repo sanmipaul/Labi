@@ -38,7 +38,8 @@ contract IntentRegistry is IIntentRegistry {
      * @param triggerValue The trigger threshold value
      * @param triggerData Encoded trigger configuration data
      * @param conditionData Encoded condition logic data
-     * @param actionData Encoded action execution data
+     * @param actions Array of actions to execute
+     * @param executionFee Fee per execution
      * @return flowId The ID of the newly created flow
      * @dev Flow creator (msg.sender) is automatically validated as non-zero by EVM
      */

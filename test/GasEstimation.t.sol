@@ -58,7 +58,7 @@ contract GasEstimationTest is Test {
         bytes memory conditionData = "";
         IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](0);
 
-        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
 
         (bool canExecute, string memory reason, uint256 estimatedGas, uint256 estimatedCost) = simulator.simulateExecution(flowId);
 

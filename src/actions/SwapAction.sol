@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {IAction} from "./IAction.sol";
 import {IIntentVault} from "../IIntentVault.sol";
-import {Ownable} from "../Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
@@ -21,7 +21,8 @@ interface IUniswapV2Router {
     ) external returns (uint256[] memory amounts);
 }
 
-contract SwapAction is IAction {
+contract SwapAction is IAction, Ownable {
+    constructor() Ownable(msg.sender) {}
     address public constant UNISWAP_ROUTER = 0x4752ba5DbbC23F44D87826acb77CBf34405e94cc;
 
     /// @notice Minimum slippage tolerance in basis points (1 bp = 0.01%)
@@ -49,6 +50,14 @@ contract SwapAction is IAction {
         uint256 amountIn,
         uint256 amountOutMin,
         uint256 calculatedMin
+    );
+
+    event SwapExecuted(
+        address indexed vault,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut
     );
 
     function actionType() external pure returns (uint8) {
