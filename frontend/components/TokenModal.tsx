@@ -103,7 +103,26 @@ export function TokenModal({
         </div>
         
         <div className="max-h-[60vh] overflow-y-auto">
-          {filteredTokens.length === 0 ? (
+          {customToken && !TOKENS.find(t => t.address.toLowerCase() === searchQuery.toLowerCase()) && (
+            <button
+              onClick={() => {
+                onSelect(customToken);
+                onClose();
+              }}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-100 dark:border-gray-800"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xs font-bold text-orange-600">
+                  ?
+                </div>
+                <div className="text-left">
+                  <div className="font-medium text-gray-900 dark:text-white">Import Custom Token</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[200px]">{customToken.address}</div>
+                </div>
+              </div>
+            </button>
+          )}
+          {filteredTokens.length === 0 && !customToken ? (
             <div className="p-8 text-center text-gray-500">
               No tokens found
             </div>
