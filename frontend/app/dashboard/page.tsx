@@ -188,6 +188,17 @@ function ExecutionHistorySection() {
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right flex flex-col items-end gap-1">
+                <a 
+                  href={`https://etherscan.io/tx/${execution.txHash}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1"
+                >
+                  {execution.txHash}
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
                   {execution.status}
                 </span>
