@@ -75,7 +75,11 @@ export function TokenModal({
         <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold">Select Token</h2>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              aria-label="Close modal"
+            >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -87,6 +91,7 @@ export function TokenModal({
               ref={inputRef}
               type="text"
               placeholder="Search name or paste address"
+              aria-label="Search tokens"
               className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-blue-500 transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -95,6 +100,7 @@ export function TokenModal({
               <button 
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Clear search"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
