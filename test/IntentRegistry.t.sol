@@ -90,12 +90,18 @@ contract IntentRegistryTest is Test {
 
     function test_UpdateFlowStatus() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions
         );
 
         IIntentRegistry.IntentFlow memory flowBefore = registry.getFlow(flowId);
