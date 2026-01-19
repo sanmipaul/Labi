@@ -102,6 +102,9 @@ export default function DashboardPage() {
                 <span className="text-gray-500 dark:text-gray-400">Executed</span>
                 <span className="font-bold text-xl text-blue-500">{MOCK_HISTORY.length}</span>
               </div>
+              <button className="w-full mt-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-medium transition-colors border border-gray-200 dark:border-gray-700">
+                Manage All Flows
+              </button>
             </div>
           </div>
         </div>
