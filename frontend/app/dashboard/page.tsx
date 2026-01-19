@@ -176,7 +176,12 @@ function ExecutionHistorySection() {
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-      <h3 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Execution History</h3>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Execution History</h3>
+        <button className="text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors">
+          View All
+        </button>
+      </div>
       <div className="space-y-4">
         {MOCK_HISTORY.map((execution) => (
           <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
