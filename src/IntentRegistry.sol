@@ -47,7 +47,8 @@ contract IntentRegistry is IIntentRegistry {
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        Action[] calldata actions
+        Action[] calldata actions,
+        uint256 executionFee
     ) external override returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         require(actions.length > 0, "No actions provided");
@@ -64,6 +65,7 @@ contract IntentRegistry is IIntentRegistry {
         newFlow.active = true;
         newFlow.lastExecutedAt = 0;
         newFlow.executionCount = 0;
+        newFlow.executionFee = executionFee;
 
         for (uint256 i = 0; i < actions.length; i++) {
             newFlow.actions.push(actions[i]);

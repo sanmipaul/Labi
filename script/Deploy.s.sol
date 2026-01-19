@@ -29,7 +29,7 @@ contract DeployLabi is Script {
         gasOracle = new GasOracle(address(0)); // Start with fallback
         console.log("GasOracle deployed at:", address(gasOracle));
 
-        executor = new FlowExecutor(address(registry));
+        executor = new FlowExecutor(address(registry), msg.sender);
         console.log("FlowExecutor deployed at:", address(executor));
 
         simulator = new ExecutionSimulator(address(registry), address(gasOracle));

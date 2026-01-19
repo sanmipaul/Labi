@@ -9,4 +9,5 @@ interface IIntentVault {
     function isPaused() external view returns (bool);
     function pause() external;
     function unpause() external;
+    function collectFee(uint256 amount) external;
 }
