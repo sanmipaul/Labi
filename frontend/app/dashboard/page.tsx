@@ -100,7 +100,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <span className="text-gray-500 dark:text-gray-400">Executed</span>
-                <span className="font-bold text-xl text-blue-500">-</span>
+                <span className="font-bold text-xl text-blue-500">{MOCK_HISTORY.length}</span>
               </div>
             </div>
           </div>
