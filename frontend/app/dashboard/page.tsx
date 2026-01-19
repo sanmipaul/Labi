@@ -187,8 +187,10 @@ function ExecutionHistorySection() {
               </div>
             </div>
             <div className="flex items-center gap-6">
-              <div className="text-right">
-                <div className="text-sm font-medium text-gray-900 dark:text-white capitalize">{execution.status}</div>
+              <div className="text-right flex flex-col items-end gap-1">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
+                  {execution.status}
+                </span>
                 <div className="text-xs text-gray-500">{new Date(execution.timestamp).toLocaleDateString()}</div>
               </div>
             </div>
