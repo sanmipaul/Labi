@@ -6,6 +6,42 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { CreateFlowModal } from '@/components/CreateFlowModal';
 import { IntentRegistryABI, IntentRegistryAddress } from '@/lib/contracts';
 
+type ExecutionHistory = {
+  id: string;
+  flowId: string;
+  timestamp: number;
+  status: 'success' | 'failed' | 'pending';
+  txHash: string;
+  label: string;
+};
+
+const MOCK_HISTORY: ExecutionHistory[] = [
+  {
+    id: '1',
+    flowId: '1',
+    timestamp: Date.now() - 3600000,
+    status: 'success',
+    txHash: '0x123...abc',
+    label: 'Daily Balance Check',
+  },
+  {
+    id: '2',
+    flowId: '1',
+    timestamp: Date.now() - 86400000,
+    status: 'success',
+    txHash: '0x456...def',
+    label: 'Daily Balance Check',
+  },
+  {
+    id: '3',
+    flowId: '2',
+    timestamp: Date.now() - 172800000,
+    status: 'failed',
+    txHash: '0x789...ghi',
+    label: 'Weekly Portfolio Rebalance',
+  },
+];
+
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
   const [isModalOpen, setIsModalOpen] = useState(false);
