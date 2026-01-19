@@ -185,9 +185,17 @@ function ExecutionHistorySection() {
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Execution History</h3>
-        <button className="text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors">
-          View All
-        </button>
+        <div className="flex items-center gap-4">
+          <button className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 text-sm transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <button className="text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors">
+            View All
+          </button>
+        </div>
       </div>
       <div className="space-y-4">
         {MOCK_HISTORY.length > 0 ? (
