@@ -3,11 +3,19 @@ export const IntentRegistryABI = [
     "type": "function",
     "name": "createFlow",
     "inputs": [
-      { "name": "triggerType", "type": "uint8", "internalType": "uint8" },
+      { "name": "triggerType", "type": "uint256", "internalType": "uint256" },
       { "name": "triggerValue", "type": "uint256", "internalType": "uint256" },
       { "name": "triggerData", "type": "bytes", "internalType": "bytes" },
       { "name": "conditionData", "type": "bytes", "internalType": "bytes" },
-      { "name": "actionData", "type": "bytes", "internalType": "bytes" }
+      {
+        "name": "actions",
+        "type": "tuple[]",
+        "internalType": "struct IIntentRegistry.Action[]",
+        "components": [
+          { "name": "actionType", "type": "uint256", "internalType": "uint256" },
+          { "name": "actionData", "type": "bytes", "internalType": "bytes" }
+        ]
+      }
     ],
     "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "nonpayable"
@@ -24,11 +32,19 @@ export const IntentRegistryABI = [
         "components": [
           { "name": "id", "type": "uint256", "internalType": "uint256" },
           { "name": "user", "type": "address", "internalType": "address" },
-          { "name": "triggerType", "type": "uint8", "internalType": "uint8" },
+          { "name": "triggerType", "type": "uint256", "internalType": "uint256" },
           { "name": "triggerValue", "type": "uint256", "internalType": "uint256" },
           { "name": "triggerData", "type": "bytes", "internalType": "bytes" },
           { "name": "conditionData", "type": "bytes", "internalType": "bytes" },
-          { "name": "actionData", "type": "bytes", "internalType": "bytes" },
+          {
+            "name": "actions",
+            "type": "tuple[]",
+            "internalType": "struct IIntentRegistry.Action[]",
+            "components": [
+              { "name": "actionType", "type": "uint256", "internalType": "uint256" },
+              { "name": "actionData", "type": "bytes", "internalType": "bytes" }
+            ]
+          },
           { "name": "active", "type": "bool", "internalType": "bool" },
           { "name": "lastExecutedAt", "type": "uint256", "internalType": "uint256" },
           { "name": "executionCount", "type": "uint256", "internalType": "uint256" }
@@ -60,7 +76,7 @@ export const IntentRegistryABI = [
     "inputs": [
       { "name": "flowId", "type": "uint256", "indexed": true, "internalType": "uint256" },
       { "name": "user", "type": "address", "indexed": true, "internalType": "address" },
-      { "name": "triggerType", "type": "uint8", "indexed": false, "internalType": "uint8" },
+      { "name": "triggerType", "type": "uint256", "indexed": false, "internalType": "uint256" },
       { "name": "triggerValue", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
