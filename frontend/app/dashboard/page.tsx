@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { CreateFlowModal } from '@/components/CreateFlowModal';
@@ -161,6 +161,13 @@ export default function DashboardPage() {
 }
 
 function ExecutionHistorySection() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const timeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -198,7 +205,12 @@ function ExecutionHistorySection() {
         </div>
       </div>
       <div className="space-y-4">
-        {MOCK_HISTORY.length > 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading history...</p>
+          </div>
+        ) : MOCK_HISTORY.length > 0 ? (
           MOCK_HISTORY.map((execution) => (
             <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
               <div className="flex items-center gap-4">
