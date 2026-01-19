@@ -232,10 +232,10 @@ function ExecutionHistorySection() {
                     href={`https://etherscan.io/tx/${execution.txHash}`} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1"
+                    className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1 group/tx"
                   >
-                    {execution.txHash}
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span className="group-hover/tx:underline decoration-blue-500/30">{execution.txHash}</span>
+                    <svg className="w-3 h-3 opacity-70 group-hover/tx:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
