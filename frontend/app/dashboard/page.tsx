@@ -52,6 +52,12 @@ export default function DashboardPage() {
     }
   }, [isConnected, isModalOpen]);
 
+  useEffect(() => {
+    if (isConnected) {
+      window.focus();
+    }
+  }, [isConnected]);
+
   // Fetch user flow IDs
   const { data: userFlowIds } = useReadContract({
     address: IntentRegistryAddress,
