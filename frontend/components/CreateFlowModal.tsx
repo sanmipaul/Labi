@@ -86,6 +86,13 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
         ]
       );
 
+      const actions = [
+        {
+          actionType: BigInt(1), // Swap action type
+          actionData: actionData
+        }
+      ];
+
       writeContract({
         address: IntentRegistryAddress,
         abi: IntentRegistryABI,
@@ -95,7 +102,7 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
           value,
           triggerData,
           conditionData,
-          actionData
+          actions
         ],
       });
     } catch (e) {
