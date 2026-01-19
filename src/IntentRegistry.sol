@@ -38,7 +38,8 @@ contract IntentRegistry is IIntentRegistry {
      * @param triggerValue The trigger threshold value
      * @param triggerData Encoded trigger configuration data
      * @param conditionData Encoded condition logic data
-     * @param actionData Encoded action execution data
+     * @param actions Array of actions to execute
+     * @param executionFee Fee per execution
      * @return flowId The ID of the newly created flow
      * @dev Flow creator (msg.sender) is automatically validated as non-zero by EVM
      */
@@ -47,7 +48,8 @@ contract IntentRegistry is IIntentRegistry {
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        Action[] calldata actions
+        Action[] calldata actions,
+        uint256 executionFee
     ) external override returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         require(actions.length > 0, "No actions provided");
@@ -64,6 +66,7 @@ contract IntentRegistry is IIntentRegistry {
         newFlow.active = true;
         newFlow.lastExecutedAt = 0;
         newFlow.executionCount = 0;
+        newFlow.executionFee = executionFee;
 
         for (uint256 i = 0; i < actions.length; i++) {
             newFlow.actions.push(actions[i]);

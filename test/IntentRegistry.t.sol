@@ -27,7 +27,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         assertEq(flowId, 1);
@@ -46,7 +47,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
@@ -70,7 +72,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         vm.prank(user1);
@@ -79,7 +82,8 @@ contract IntentRegistryTest is Test {
             50e18,
             abi.encode(address(0x1234), 100e18, true),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         uint256[] memory userFlows = registry.getUserFlows(user1);
@@ -101,7 +105,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         IIntentRegistry.IntentFlow memory flowBefore = registry.getFlow(flowId);
@@ -127,7 +132,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         IIntentRegistry.IntentFlow memory flowBefore = registry.getFlow(flowId);
@@ -154,7 +160,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
 
         vm.prank(user2);
@@ -176,7 +183,8 @@ contract IntentRegistryTest is Test {
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            actions
+            actions,
+            0
         );
     }
 
@@ -193,10 +201,10 @@ contract IntentRegistryTest is Test {
         });
 
         vm.prank(user1);
-        uint256 user1Flow1 = registry.createFlow(1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), actions);
+        uint256 user1Flow1 = registry.createFlow(1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), actions, 0);
 
         vm.prank(user2);
-        uint256 user2Flow1 = registry.createFlow(2, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), actions);
+        uint256 user2Flow1 = registry.createFlow(2, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), actions, 0);
 
         uint256[] memory user1Flows = registry.getUserFlows(user1);
         uint256[] memory user2Flows = registry.getUserFlows(user2);

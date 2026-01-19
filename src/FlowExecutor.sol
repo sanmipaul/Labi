@@ -23,16 +23,43 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
     
+    address public protocolFeeRecipient;
+    uint16 public protocolFeeBps = 1000; // 10% protocol fee
+    uint256 public baseFee = 0.001 ether; // Minimum fee for executor
+
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
 
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
+    event ProtocolFeeRecipientUpdated(address indexed newRecipient);
+    event ProtocolFeeBpsUpdated(uint16 newBps);
+    event BaseFeeUpdated(uint256 newBaseFee);
+    event FeeDistributed(uint256 indexed flowId, address indexed executor, uint256 executorAmount, uint256 protocolAmount);
 
-    constructor(address registryAddress) Ownable(msg.sender) {
+    constructor(address registryAddress, address _protocolFeeRecipient) Ownable(msg.sender) {
         require(registryAddress != address(0), "Invalid registry");
+        require(_protocolFeeRecipient != address(0), "Invalid recipient");
         registry = IIntentRegistry(registryAddress);
+        protocolFeeRecipient = _protocolFeeRecipient;
+    }
+
+    function setProtocolFeeRecipient(address _protocolFeeRecipient) external onlyOwner {
+        require(_protocolFeeRecipient != address(0), "Invalid recipient");
+        protocolFeeRecipient = _protocolFeeRecipient;
+        emit ProtocolFeeRecipientUpdated(_protocolFeeRecipient);
+    }
+
+    function setProtocolFeeBps(uint16 _protocolFeeBps) external onlyOwner {
+        require(_protocolFeeBps <= 10000, "BPS too high");
+        protocolFeeBps = _protocolFeeBps;
+        emit ProtocolFeeBpsUpdated(_protocolFeeBps);
+    }
+
+    function setBaseFee(uint256 _baseFee) external onlyOwner {
+        baseFee = _baseFee;
+        emit BaseFeeUpdated(_baseFee);
     }
 
     /**
@@ -141,8 +168,33 @@ contract FlowExecutor is Ownable, Pausable {
         }
 
         registry.recordExecution(flowId);
+        _distributeFees(flowId, flow.user, flow.executionFee);
         emit ExecutionAttempted(flowId, true, "Success");
         return true;
+    }
+
+    function _distributeFees(uint256 flowId, address vaultAddress, uint256 feeAmount) private {
+        if (feeAmount == 0) return;
+
+        IIntentVault vault = IIntentVault(vaultAddress);
+        
+        // Collect fee from vault
+        vault.collectFee(feeAmount);
+
+        uint256 protocolAmount = (feeAmount * protocolFeeBps) / 10000;
+        uint256 executorAmount = feeAmount - protocolAmount;
+
+        if (protocolAmount > 0) {
+            (bool success, ) = protocolFeeRecipient.call{value: protocolAmount}("");
+            require(success, "Protocol fee transfer failed");
+        }
+
+        if (executorAmount > 0) {
+            (bool success, ) = msg.sender.call{value: executorAmount}("");
+            require(success, "Executor fee transfer failed");
+        }
+
+        emit FeeDistributed(flowId, msg.sender, executorAmount, protocolAmount);
     }
 
     function _evaluateCondition(IIntentVault vault, bytes memory conditionData)

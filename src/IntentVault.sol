@@ -84,6 +84,7 @@ contract IntentVault is IIntentVault {
      */
     function setSpendingCap(address token, uint256 cap) external onlyOwner {
         require(token != address(0), "IntentVault: token address is zero");
+        uint256 previousSpent = spentAmounts[token];
         spendingCaps[token] = cap;
         spentAmounts[token] = 0;
         emit SpendingCapSet(token, cap);
@@ -171,6 +172,7 @@ contract IntentVault is IIntentVault {
      */
     function resetSpendingTracker(address token) external onlyOwner {
         require(token != address(0), "IntentVault: token address is zero");
+        uint256 previousSpent = spentAmounts[token];
         spentAmounts[token] = 0;
         if (previousSpent > 0) {
             emit SpendingReset(token, previousSpent);
@@ -204,4 +206,20 @@ contract IntentVault is IIntentVault {
         paused = false;
         emit Unpaused();
     }
+
+    /**
+     * @dev Transfers fees from the vault to the collector
+     * @param amount The amount of ETH to transfer
+     * @notice Only approved protocols can call this function
+     */
+    function collectFee(uint256 amount) external whenNotPaused {
+        require(approvedProtocols[msg.sender], "IntentVault: protocol not approved");
+        require(amount > 0, "IntentVault: amount must be greater than zero");
+        require(address(this).balance >= amount, "IntentVault: insufficient balance");
+
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "IntentVault: fee transfer failed");
+    }
+
+    receive() external payable {}
 }

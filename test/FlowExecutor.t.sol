@@ -7,21 +7,21 @@ import "../src/FlowExecutor.sol";
 import "../src/triggers/TimeTrigger.sol";
 import "../src/actions/SwapAction.sol";
 
-contract FlowExecutorTest is Test {
+contract FlowExecutorTest is Test, IntentVault {
     IntentRegistry registry;
     FlowExecutor executor;
     TimeTrigger timeTrigger;
-    IntentVault vault;
-    address user;
+    address protocolFeeRecipient = address(0xDEAD);
 
     function setUp() public {
-        user = address(this);
-        vault = new IntentVault();
         registry = new IntentRegistry();
-        executor = new FlowExecutor(address(registry));
+        executor = new FlowExecutor(address(registry), protocolFeeRecipient);
         timeTrigger = new TimeTrigger();
 
         executor.registerTrigger(1, address(timeTrigger));
+        
+        // Approve executor in this vault (test contract is the vault)
+        this.approveProtocol(address(executor));
     }
 
     function test_RegisterTrigger() public {
@@ -41,7 +41,7 @@ contract FlowExecutorTest is Test {
             actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
         });
 
-        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
 
         (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
         assertTrue(canExecute);
@@ -61,7 +61,7 @@ contract FlowExecutorTest is Test {
             actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
         });
 
-        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
         registry.updateFlowStatus(flowId, false);
 
         (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
@@ -82,10 +82,9 @@ contract FlowExecutorTest is Test {
             actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
         });
 
-        vm.prank(user);
-        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
 
-        vault.pause();
+        this.pause();
 
         (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
         assertFalse(canExecute);
@@ -93,7 +92,7 @@ contract FlowExecutorTest is Test {
     }
 
     function test_TriggerNotRegisteredError() public {
-        FlowExecutor testExecutor = new FlowExecutor(address(registry));
+        FlowExecutor testExecutor = new FlowExecutor(address(registry), address(0xDEAD));
         
         uint256 currentTime = block.timestamp;
         uint256 dayOfWeek = (currentTime / 1 days) % 7;
@@ -107,7 +106,7 @@ contract FlowExecutorTest is Test {
             actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
         });
 
-        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actions, 0);
 
         (bool canExecute, string memory reason) = testExecutor.canExecuteFlow(flowId);
         assertFalse(canExecute);
@@ -123,8 +122,7 @@ contract FlowExecutorTest is Test {
             actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
         });
 
-        vm.prank(user);
-        uint256 flowId = registry.createFlow(99, 0, triggerData, conditionData, actions);
+        uint256 flowId = registry.createFlow(99, 0, triggerData, conditionData, actions, 0);
 
         bool success = executor.executeFlow(flowId);
         assertFalse(success);

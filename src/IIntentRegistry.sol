@@ -17,6 +17,7 @@ interface IIntentRegistry {
         bool active;
         uint256 lastExecutedAt;
         uint256 executionCount;
+        uint256 executionFee; // Fee per execution
     }
 
     function createFlow(
@@ -24,7 +25,8 @@ interface IIntentRegistry {
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        Action[] calldata actions
+        Action[] calldata actions,
+        uint256 executionFee
     ) external returns (uint256);
 
     function getFlow(uint256 flowId) external view returns (IntentFlow memory);
