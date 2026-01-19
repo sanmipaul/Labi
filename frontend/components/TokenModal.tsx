@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { isAddress } from 'viem';
 
 type Token = {
@@ -31,6 +31,13 @@ export function TokenModal({
   onSelect: (token: Token) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -77,6 +84,7 @@ export function TokenModal({
           
           <div className="relative">
             <input
+              ref={inputRef}
               type="text"
               placeholder="Search name or paste address"
               className="w-full bg-gray-100 dark:bg-gray-800 border-none rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-blue-500 transition-all"
