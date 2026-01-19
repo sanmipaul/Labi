@@ -4,15 +4,23 @@ import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
+import {GasOracle} from "./GasOracle.sol";
 
 contract ExecutionSimulator {
     IIntentRegistry public registry;
+    GasOracle public gasOracle;
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
 
-    constructor(address registryAddress) {
+    constructor(address registryAddress, address _gasOracle) {
         require(registryAddress != address(0), "Invalid registry");
         registry = IIntentRegistry(registryAddress);
+        gasOracle = GasOracle(_gasOracle);
+    }
+
+    function setGasOracle(address _gasOracle) external {
+        require(_gasOracle != address(0), "Invalid gas oracle");
+        gasOracle = GasOracle(_gasOracle);
     }
 
     function setTriggerContract(uint8 triggerType, address triggerContract) external {
@@ -28,14 +36,21 @@ contract ExecutionSimulator {
     function simulateExecution(uint256 flowId) external view returns (
         bool canExecute,
         string memory reason,
-        uint256 estimatedGas
+        uint256 estimatedGas,
+        uint256 estimatedCost
     ) {
+        uint256 startGas = gasleft();
         try this._performSimulation(flowId) returns (bool success, string memory msg_) {
-            return (success, msg_, 0);
+            uint256 gasUsed = startGas - gasleft();
+            uint256 cost = 0;
+            if (address(gasOracle) != address(0)) {
+                cost = gasOracle.estimateCost(gasUsed);
+            }
+            return (success, msg_, gasUsed, cost);
         } catch Error(string memory error) {
-            return (false, error, 0);
+            return (false, error, 0, 0);
         } catch {
-            return (false, "Simulation failed", 0);
+            return (false, "Simulation failed", 0, 0);
         }
     }
 
