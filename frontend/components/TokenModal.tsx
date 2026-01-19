@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { isAddress } from 'viem';
 
 type Token = {
   symbol: string;
