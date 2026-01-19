@@ -186,11 +186,17 @@ contract IntentRegistryTest is Test {
     }
 
     function test_MultipleUsersMultipleFlows() public {
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0), address(0), 0, 0, 0)
+        });
+
         vm.prank(user1);
-        uint256 user1Flow1 = registry.createFlow(1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0));
+        uint256 user1Flow1 = registry.createFlow(1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), actions);
 
         vm.prank(user2);
-        uint256 user2Flow1 = registry.createFlow(2, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0));
+        uint256 user2Flow1 = registry.createFlow(2, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), actions);
 
         uint256[] memory user1Flows = registry.getUserFlows(user1);
         uint256[] memory user2Flows = registry.getUserFlows(user2);
