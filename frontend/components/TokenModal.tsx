@@ -12,6 +12,10 @@ const TOKENS: Token[] = [
   { symbol: 'WETH', name: 'Wrapped Ether', address: '0x4200000000000000000000000000000000000006' },
   { symbol: 'USDC', name: 'USD Coin', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
   { symbol: 'DAI', name: 'Dai Stablecoin', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' },
+  { symbol: 'WBTC', name: 'Wrapped Bitcoin', address: '0x03323097073E9D1F0847f93234d71B9d2a816172' },
+  { symbol: 'USDT', name: 'Tether USD', address: '0xfde4C96256153296af772439a5414e863d0F4f15' },
+  { symbol: 'LINK', name: 'Chainlink', address: '0xf97f4df70a175d211846e3202867cf34065d6201' },
+  { symbol: 'UNI', name: 'Uniswap', address: '0x2262C56D5AD2397B5100045743D9392264653B78' },
 ];
 
 export function TokenModal({ 
