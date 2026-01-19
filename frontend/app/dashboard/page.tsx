@@ -161,6 +161,19 @@ export default function DashboardPage() {
 }
 
 function ExecutionHistorySection() {
+  const getStatusBadge = (status: ExecutionHistory['status']) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'failed':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400';
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
       <h3 className="text-lg font-semibold mb-6 text-gray-900 dark:text-white">Execution History</h3>
