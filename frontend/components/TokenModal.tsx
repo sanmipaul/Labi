@@ -40,6 +40,13 @@ export function TokenModal({
 
   const popularTokensData = TOKENS.filter((t) => POPULAR_TOKENS.includes(t.symbol));
 
+  const isSearchAddress = isAddress(searchQuery);
+  const customToken: Token | null = isSearchAddress ? {
+    symbol: 'CUSTOM',
+    name: 'Imported Token',
+    address: searchQuery
+  } : null;
+
   if (!isOpen) return null;
 
   return (
