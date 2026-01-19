@@ -171,6 +171,11 @@ function ExecutionHistorySection() {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleRefresh = () => {
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 1000);
+  };
+
   const timeAgo = (timestamp: number) => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -196,8 +201,11 @@ function ExecutionHistorySection() {
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Execution History</h3>
         <div className="flex items-center gap-4">
-          <button className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 text-sm transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button 
+            onClick={handleRefresh}
+            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 text-sm transition-colors"
+          >
+            <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Refresh
