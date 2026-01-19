@@ -145,6 +145,9 @@ export function TokenModal({
                     <div className="text-xs text-gray-500">{token.name}</div>
                   </div>
                 </div>
+                <div className="text-right text-xs text-gray-400 font-mono">
+                  {token.address.slice(0, 6)}...{token.address.slice(-4)}
+                </div>
               </button>
             ))
           )}
