@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { isAddress } from 'viem';
 
 type Token = {
@@ -31,6 +31,14 @@ export function TokenModal({
   onSelect: (token: Token) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
 
   const filteredTokens = TOKENS.filter((token) =>
     token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
