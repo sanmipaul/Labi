@@ -1,6 +1,11 @@
 pragma solidity ^0.8.19;
 
 interface IIntentRegistry {
+    struct Action {
+        uint8 actionType;
+        bytes actionData;
+    }
+
     struct IntentFlow {
         uint256 id;
         address user;
@@ -8,7 +13,7 @@ interface IIntentRegistry {
         uint256 triggerValue;
         bytes triggerData;
         bytes conditionData;
-        bytes actionData;
+        Action[] actions;
         bool active;
         uint256 lastExecutedAt;
         uint256 executionCount;
@@ -19,7 +24,7 @@ interface IIntentRegistry {
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        bytes calldata actionData
+        Action[] calldata actions
     ) external returns (uint256);
 
     function getFlow(uint256 flowId) external view returns (IntentFlow memory);
