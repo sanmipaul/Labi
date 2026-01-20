@@ -136,6 +136,9 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
           </div>
 
           <div className="p-6 max-h-[70vh] overflow-y-auto">
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm">
+              <strong>ERC-4337 Support:</strong> Flows can now be executed via smart accounts for gasless transactions and batch operations.
+            </div>
             {/* Success Message */}
             {isSuccess && (
               <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl flex items-center gap-2">
