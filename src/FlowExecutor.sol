@@ -6,6 +6,7 @@ import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
 import {ILayerZeroEndpointV2} from "./LayerZeroInterfaces.sol";
 import {MessagingParams, MessagingReceipt, Origin} from "./LayerZeroInterfaces.sol";
+import {CrossChainUtils} from "./CrossChainUtils.sol";
 
 contract FlowExecutor {
     IIntentRegistry public registry;
@@ -82,6 +83,7 @@ contract FlowExecutor {
 
         uint8 actionType = flow.actionType;
         if (flow.dstEid != 0) {
+            require(CrossChainUtils.isSupportedChain(flow.dstEid), "Unsupported chain");
             actionType = 2; // CrossChainAction
             bytes32 dstAddress = dstExecutors[flow.dstEid];
             require(dstAddress != bytes32(0), "Dst executor not set");
