@@ -23,6 +23,7 @@ contract IntentRegistry is IIntentRegistry {
 
     function createFlow(
         uint8 triggerType,
+        uint8 actionType,
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
@@ -30,6 +31,7 @@ contract IntentRegistry is IIntentRegistry {
         uint32 dstEid
     ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
+        require(actionType > 0, "Invalid action type");
         
         uint256 flowId = ++flowCounter;
         
@@ -37,6 +39,7 @@ contract IntentRegistry is IIntentRegistry {
             id: flowId,
             user: msg.sender,
             triggerType: triggerType,
+            actionType: actionType,
             triggerValue: triggerValue,
             triggerData: triggerData,
             conditionData: conditionData,

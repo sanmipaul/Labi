@@ -13,6 +13,7 @@ contract FlowExecutor {
     
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
+    mapping(uint32 => bytes32) public dstExecutors; // dstEid => dst FlowExecutor address
 
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
@@ -37,6 +38,10 @@ contract FlowExecutor {
         require(actionType > 0, "Invalid action type");
         actionContracts[actionType] = IAction(actionContract);
         emit ActionRegistered(actionType, actionContract);
+    }
+
+    function setDstExecutor(uint32 dstEid, bytes32 dstExecutor) external {
+        dstExecutors[dstEid] = dstExecutor;
     }
 
     function executeFlow(uint256 flowId) external returns (bool) {
@@ -75,7 +80,14 @@ contract FlowExecutor {
             return false;
         }
 
-        uint8 actionType = 1;
+        uint8 actionType = flow.actionType;
+        if (flow.dstEid != 0) {
+            actionType = 2; // CrossChainAction
+            bytes32 dstAddress = dstExecutors[flow.dstEid];
+            require(dstAddress != bytes32(0), "Dst executor not set");
+            actionData = abi.encode(flow.dstEid, dstAddress, flowId, actionData);
+        }
+
         IAction actionContract = actionContracts[actionType];
         require(address(actionContract) != address(0), "Action not registered");
 

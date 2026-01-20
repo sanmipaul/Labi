@@ -5,6 +5,7 @@ interface IIntentRegistry {
         uint256 id;
         address user;
         uint8 triggerType;
+        uint8 actionType;
         uint256 triggerValue;
         bytes triggerData;
         bytes conditionData;
@@ -17,6 +18,7 @@ interface IIntentRegistry {
 
     function createFlow(
         uint8 triggerType,
+        uint8 actionType,
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
