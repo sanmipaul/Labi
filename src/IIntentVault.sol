@@ -9,4 +9,7 @@ interface IIntentVault {
     function isPaused() external view returns (bool);
     function pause() external;
     function unpause() external;
+    // ERC-4337
+    function execute(address dest, uint256 value, bytes calldata func) external;
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external;
 }
