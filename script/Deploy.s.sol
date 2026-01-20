@@ -5,6 +5,7 @@ import "../src/IntentVault.sol";
 import "../src/IntentRegistry.sol";
 import "../src/FlowExecutor.sol";
 import "../src/ExecutionSimulator.sol";
+import "../src/GasOracle.sol";
 import "../src/triggers/TimeTrigger.sol";
 import "../src/triggers/PriceTrigger.sol";
 import "../src/actions/SwapAction.sol";
@@ -16,6 +17,7 @@ contract DeployLabi is Script {
     IntentRegistry public registry;
     FlowExecutor public executor;
     ExecutionSimulator public simulator;
+    GasOracle public gasOracle;
     TimeTrigger public timeTrigger;
     PriceTrigger public priceTrigger;
     SwapAction public swapAction;
@@ -33,7 +35,7 @@ contract DeployLabi is Script {
         executor = new FlowExecutor(address(registry), lzEndpoint);
         console.log("FlowExecutor deployed at:", address(executor));
 
-        simulator = new ExecutionSimulator(address(registry));
+        simulator = new ExecutionSimulator(address(registry), address(gasOracle));
         console.log("ExecutionSimulator deployed at:", address(simulator));
 
         timeTrigger = new TimeTrigger();
@@ -67,6 +69,7 @@ contract DeployLabi is Script {
 
         console.log("\n=== Deployment Summary ===");
         console.log("IntentRegistry:", address(registry));
+        console.log("GasOracle:", address(gasOracle));
         console.log("FlowExecutor:", address(executor));
         console.log("ExecutionSimulator:", address(simulator));
         console.log("TimeTrigger:", address(timeTrigger));

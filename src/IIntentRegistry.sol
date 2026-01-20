@@ -1,6 +1,11 @@
 pragma solidity ^0.8.19;
 
 interface IIntentRegistry {
+    struct Action {
+        uint8 actionType;
+        bytes actionData;
+    }
+
     struct IntentFlow {
         uint256 id;
         address user;
@@ -14,6 +19,7 @@ interface IIntentRegistry {
         bool active;
         uint256 lastExecutedAt;
         uint256 executionCount;
+        uint256 executionFee; // Fee per execution
     }
 
     function createFlow(
