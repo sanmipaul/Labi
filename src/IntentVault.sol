@@ -1,10 +1,12 @@
 pragma solidity ^0.8.19;
 
 import {IIntentVault} from "./IIntentVault.sol";
+import {IAccount, UserOperation, IEntryPoint} from "./ERC4337Interfaces.sol";
 
-contract IntentVault is IIntentVault {
+contract IntentVault is IIntentVault, IAccount {
     address private vaultOwner;
     bool private paused;
+    IEntryPoint private entryPoint;
 
     mapping(address => bool) private approvedProtocols;
     mapping(address => uint256) private spendingCaps;
@@ -17,9 +19,10 @@ contract IntentVault is IIntentVault {
     event Unpaused();
     event SpendingRecorded(address indexed token, uint256 amount);
 
-    constructor() {
+    constructor(address entryPointAddress) {
         vaultOwner = msg.sender;
         paused = false;
+        entryPoint = IEntryPoint(entryPointAddress);
     }
 
     modifier onlyOwner() {
@@ -90,5 +93,35 @@ contract IntentVault is IIntentVault {
     function unpause() external onlyOwner {
         paused = false;
         emit Unpaused();
+    }
+
+    // ERC-4337 functions
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external returns (uint256 validationData) {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        // Simple validation: check signature (placeholder)
+        // In real implementation, verify signature against vaultOwner
+        require(userOp.signature.length > 0, "Invalid signature");
+        // For gasless, handle missing funds
+        if (missingAccountFunds > 0) {
+            (bool success,) = payable(msg.sender).call{value: missingAccountFunds}("");
+            require(success, "Failed to pay missing funds");
+        }
+        return 0; // validationData
+    }
+
+    function execute(address dest, uint256 value, bytes calldata func) external {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        (bool success,) = dest.call{value: value}(func);
+        require(success, "Execution failed");
+    }
+
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        require(dest.length == value.length && value.length == func.length, "Invalid batch");
+        for (uint256 i = 0; i < dest.length; i++) {
+            (bool success,) = dest[i].call{value: value[i]}(func[i]);
+            require(success, "Batch execution failed");
+        }
     }
 }
