@@ -1,14 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { CreateFlowModal } from '@/components/CreateFlowModal';
 import { IntentRegistryABI, IntentRegistryAddress } from '@/lib/contracts';
 
+type ExecutionHistory = {
+  id: string;
+  flowId: string;
+  timestamp: number;
+  status: 'success' | 'failed' | 'pending';
+  txHash: string;
+  label: string;
+};
+
+const MOCK_HISTORY: ExecutionHistory[] = [
+  {
+    id: '1',
+    flowId: '1',
+    timestamp: Date.now() - 3600000,
+    status: 'success',
+    txHash: '0x123...abc',
+    label: 'Daily Balance Check',
+  },
+  {
+    id: '2',
+    flowId: '1',
+    timestamp: Date.now() - 86400000,
+    status: 'success',
+    txHash: '0x456...def',
+    label: 'Daily Balance Check',
+  },
+  {
+    id: '3',
+    flowId: '2',
+    timestamp: Date.now() - 172800000,
+    status: 'failed',
+    txHash: '0x789...ghi',
+    label: 'Weekly Portfolio Rebalance',
+  },
+];
+
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isConnected && isModalOpen) {
+      setIsModalOpen(false);
+    }
+  }, [isConnected, isModalOpen]);
+
+  useEffect(() => {
+    if (isConnected) {
+      window.focus();
+    }
+  }, [isConnected]);
 
   // Fetch user flow IDs
   const { data: userFlowIds } = useReadContract({
@@ -64,8 +112,11 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <span className="text-gray-500 dark:text-gray-400">Executed</span>
-                <span className="font-bold text-xl text-blue-500">-</span>
+                <span className="font-bold text-xl text-blue-500">{MOCK_HISTORY.length}</span>
               </div>
+              <button className="w-full mt-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-medium transition-colors border border-gray-200 dark:border-gray-700">
+                Manage All Flows
+              </button>
             </div>
           </div>
         </div>
@@ -78,9 +129,9 @@ export default function DashboardPage() {
             {userFlowIds && userFlowIds.length > 0 ? (
                <div className="space-y-4">
                  {userFlowIds.map((flowId) => (
-                   <div key={flowId.toString()} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                   <div key={flowId.toString()} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
                      <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 shadow-inner">
                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                          </svg>
@@ -115,7 +166,132 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="mt-8">
+        <ExecutionHistorySection />
+      </div>
+
       <CreateFlowModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </div>
+  );
+}
+
+function ExecutionHistorySection() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleRefresh = () => {
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 1000);
+  };
+
+  const timeAgo = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  const getStatusBadge = (status: ExecutionHistory['status']) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'failed':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+      default:
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400';
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Execution History</h3>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={handleRefresh}
+            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 text-sm transition-colors"
+          >
+            <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <button className="text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors">
+            View All
+          </button>
+        </div>
+      </div>
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading history...</p>
+          </div>
+        ) : MOCK_HISTORY.length > 0 ? (
+          MOCK_HISTORY.map((execution) => (
+            <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:bg-gray-100 dark:hover:bg-gray-800">
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  execution.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/20' : 
+                  execution.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' : 
+                  'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20'
+                }`}>
+                  {execution.status === 'success' ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : execution.status === 'failed' ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                </div>
+                <div className="text-left">
+                  <h4 className="font-medium text-gray-900 dark:text-white">{execution.label}</h4>
+                  <div className="text-xs text-gray-500">Flow #{execution.flowId}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right flex flex-col items-end gap-1">
+                  <a 
+                    href={`https://etherscan.io/tx/${execution.txHash}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:text-blue-600 font-mono flex items-center gap-1 group/tx"
+                  >
+                    <span className="group-hover/tx:underline decoration-blue-500/30">{execution.txHash}</span>
+                    <svg className="w-3 h-3 opacity-70 group-hover/tx:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(execution.status)}`}>
+                    {execution.status}
+                  </span>
+                  <div className="text-xs text-gray-500 flex gap-2">
+                    <span>{timeAgo(execution.timestamp)}</span>
+                    <span className="text-gray-300 dark:text-gray-700">•</span>
+                    <span>{new Date(execution.timestamp).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+            <p className="text-gray-500 dark:text-gray-400">No execution history found.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

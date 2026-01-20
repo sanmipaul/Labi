@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IIntentRegistry} from "./IIntentRegistry.sol";
@@ -8,10 +9,26 @@ import {ILayerZeroEndpointV2} from "./LayerZeroInterfaces.sol";
 import {MessagingParams, MessagingReceipt, Origin} from "./LayerZeroInterfaces.sol";
 import {CrossChainUtils} from "./CrossChainUtils.sol";
 
-contract FlowExecutor {
+/**
+ * @title FlowExecutor
+ * @notice Executes intent-based automation flows with emergency pause capability
+ * @dev Implements Ownable and Pausable patterns for access control and emergency stops.
+ * The contract can be paused by the owner to prevent all flow executions during critical
+ * situations, providing an emergency stop mechanism for the protocol.
+ *
+ * Security Features:
+ * - Pausable: All flow executions can be halted via pause() during emergencies
+ * - Ownable: Only the contract owner can pause/unpause and manage registrations
+ * - Access Control: Trigger and action registration restricted to owner
+ */
+contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
     ILayerZeroEndpointV2 public lzEndpoint;
     
+    address public protocolFeeRecipient;
+    uint16 public protocolFeeBps = 1000; // 10% protocol fee
+    uint256 public baseFee = 0.001 ether; // Minimum fee for executor
+
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
     mapping(uint32 => bytes32) public dstExecutors; // dstEid => dst FlowExecutor address
@@ -19,6 +36,10 @@ contract FlowExecutor {
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
+    event ProtocolFeeRecipientUpdated(address indexed newRecipient);
+    event ProtocolFeeBpsUpdated(uint16 newBps);
+    event BaseFeeUpdated(uint256 newBaseFee);
+    event FeeDistributed(uint256 indexed flowId, address indexed executor, uint256 executorAmount, uint256 protocolAmount);
 
     constructor(address registryAddress, address lzEndpointAddress) {
         require(registryAddress != address(0), "Invalid registry");
@@ -27,14 +48,33 @@ contract FlowExecutor {
         lzEndpoint = ILayerZeroEndpointV2(lzEndpointAddress);
     }
 
-    function registerTrigger(uint8 triggerType, address triggerContract) external {
+    function setBaseFee(uint256 _baseFee) external onlyOwner {
+        baseFee = _baseFee;
+        emit BaseFeeUpdated(_baseFee);
+    }
+
+    /**
+     * @notice Registers a new trigger contract for a specific trigger type
+     * @dev Only callable by contract owner. Used to configure available trigger types
+     * for flow execution.
+     * @param triggerType The numeric identifier for the trigger type (1-2)
+     * @param triggerContract The address of the trigger contract implementation
+     */
+    function registerTrigger(uint8 triggerType, address triggerContract) external onlyOwner {
         require(triggerContract != address(0), "Invalid trigger contract");
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         triggerContracts[triggerType] = ITrigger(triggerContract);
         emit TriggerRegistered(triggerType, triggerContract);
     }
 
-    function registerAction(uint8 actionType, address actionContract) external {
+    /**
+     * @notice Registers a new action contract for a specific action type
+     * @dev Only callable by contract owner. Used to configure available action types
+     * for flow execution.
+     * @param actionType The numeric identifier for the action type
+     * @param actionContract The address of the action contract implementation
+     */
+    function registerAction(uint8 actionType, address actionContract) external onlyOwner {
         require(actionContract != address(0), "Invalid action contract");
         require(actionType > 0, "Invalid action type");
         actionContracts[actionType] = IAction(actionContract);
@@ -82,11 +122,14 @@ contract FlowExecutor {
             }
         }
 
-        bytes memory actionData = flow.actionData;
-        if (actionData.length == 0) {
-            emit ExecutionAttempted(flowId, false, "No action data");
-            return false;
-        }
+        for (uint256 i = 0; i < flow.actions.length; i++) {
+            IIntentRegistry.Action memory action = flow.actions[i];
+            IAction actionContract = actionContracts[action.actionType];
+            
+            if (address(actionContract) == address(0)) {
+                emit ExecutionAttempted(flowId, false, "Action not registered");
+                return false;
+            }
 
         uint8 actionType = flow.actionType;
         if (flow.dstEid != 0) {
@@ -109,13 +152,36 @@ contract FlowExecutor {
                 emit ExecutionAttempted(flowId, false, "Action execution failed");
                 return false;
             }
-        } catch Error(string memory reason) {
-            emit ExecutionAttempted(flowId, false, reason);
-            return false;
-        } catch {
-            emit ExecutionAttempted(flowId, false, "Unknown error");
-            return false;
         }
+
+        registry.recordExecution(flowId);
+        _distributeFees(flowId, flow.user, flow.executionFee);
+        emit ExecutionAttempted(flowId, true, "Success");
+        return true;
+    }
+
+    function _distributeFees(uint256 flowId, address vaultAddress, uint256 feeAmount) private {
+        if (feeAmount == 0) return;
+
+        IIntentVault vault = IIntentVault(vaultAddress);
+        
+        // Collect fee from vault
+        vault.collectFee(feeAmount);
+
+        uint256 protocolAmount = (feeAmount * protocolFeeBps) / 10000;
+        uint256 executorAmount = feeAmount - protocolAmount;
+
+        if (protocolAmount > 0) {
+            (bool success, ) = protocolFeeRecipient.call{value: protocolAmount}("");
+            require(success, "Protocol fee transfer failed");
+        }
+
+        if (executorAmount > 0) {
+            (bool success, ) = msg.sender.call{value: executorAmount}("");
+            require(success, "Executor fee transfer failed");
+        }
+
+        emit FeeDistributed(flowId, msg.sender, executorAmount, protocolAmount);
     }
 
     function sendCrossChainIntent(uint32 dstEid, bytes32 dstAddress, bytes calldata message, MessagingParams calldata params) external payable {
@@ -147,10 +213,12 @@ contract FlowExecutor {
         if (token == address(0)) {
             return address(vault).balance >= minBalance;
         } else {
-            interface IERC20 {
-                function balanceOf(address account) external view returns (uint256);
-            }
-            return IERC20(token).balanceOf(address(vault)) >= minBalance;
+            (bool success, bytes memory data) = token.staticcall(
+                abi.encodeWithSignature("balanceOf(address)", address(vault))
+            );
+            require(success, "Balance check failed");
+            uint256 balance = abi.decode(data, (uint256));
+            return balance >= minBalance;
         }
     }
 
@@ -178,5 +246,41 @@ contract FlowExecutor {
         }
 
         return (true, "Ready for execution");
+    }
+
+    /**
+     * @dev Checks if a trigger type is registered
+     * @param triggerType The type identifier to check
+     * @return bool True if the trigger is registered
+     */
+    function isTriggerRegistered(uint8 triggerType) external view returns (bool) {
+        return address(triggerContracts[triggerType]) != address(0);
+    }
+
+    /**
+     * @dev Checks if an action type is registered
+     * @param actionType The type identifier to check
+     * @return bool True if the action is registered
+     */
+    function isActionRegistered(uint8 actionType) external view returns (bool) {
+        return address(actionContracts[actionType]) != address(0);
+    }
+
+    /**
+     * @dev Gets the registered trigger contract address
+     * @param triggerType The type identifier to query
+     * @return address The address of the registered trigger contract
+     */
+    function getTriggerContract(uint8 triggerType) external view returns (address) {
+        return address(triggerContracts[triggerType]);
+    }
+
+    /**
+     * @dev Gets the registered action contract address
+     * @param actionType The type identifier to query
+     * @return address The address of the registered action contract
+     */
+    function getActionContract(uint8 actionType) external view returns (address) {
+        return address(actionContracts[actionType]);
     }
 }

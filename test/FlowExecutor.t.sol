@@ -8,7 +8,7 @@ import "../src/triggers/TimeTrigger.sol";
 import "../src/actions/SwapAction.sol";
 import "../src/actions/CrossChainAction.sol";
 
-contract FlowExecutorTest is Test {
+contract FlowExecutorTest is Test, IntentVault {
     IntentRegistry registry;
     FlowExecutor executor;
     TimeTrigger timeTrigger;
@@ -18,8 +18,6 @@ contract FlowExecutorTest is Test {
     address user;
 
     function setUp() public {
-        user = address(this);
-        vault = new IntentVault();
         registry = new IntentRegistry();
         executor = new FlowExecutor(address(registry), address(0)); // Mock LZ endpoint
         timeTrigger = new TimeTrigger();
@@ -42,7 +40,11 @@ contract FlowExecutorTest is Test {
 
         bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
         bytes memory conditionData = abi.encode(0, address(0));
-        bytes memory actionData = abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
 
         uint256 flowId = registry.createFlow(1, 1, 0, triggerData, conditionData, actionData, 0);
 
@@ -58,7 +60,11 @@ contract FlowExecutorTest is Test {
 
         bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
         bytes memory conditionData = abi.encode(0, address(0));
-        bytes memory actionData = abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
 
         uint256 flowId = registry.createFlow(1, 1, 0, triggerData, conditionData, actionData, 0);
         registry.updateFlowStatus(flowId, false);
@@ -75,12 +81,16 @@ contract FlowExecutorTest is Test {
 
         bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
         bytes memory conditionData = abi.encode(0, address(0));
-        bytes memory actionData = abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
 
         vm.prank(user);
         uint256 flowId = registry.createFlow(1, 1, 0, triggerData, conditionData, actionData, 0);
 
-        vault.pause();
+        this.pause();
 
         (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
         assertFalse(canExecute);
@@ -96,7 +106,11 @@ contract FlowExecutorTest is Test {
 
         bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
         bytes memory conditionData = abi.encode(0, address(0));
-        bytes memory actionData = abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
 
         uint256 flowId = registry.createFlow(1, 1, 0, triggerData, conditionData, actionData, 0);
 
@@ -108,7 +122,11 @@ contract FlowExecutorTest is Test {
     function test_ExecutionAttemptsInvalidTriggerType() public {
         bytes memory triggerData = abi.encode(0, 0, 0);
         bytes memory conditionData = abi.encode(0, address(0));
-        bytes memory actionData = abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
 
         vm.prank(user);
         uint256 flowId = registry.createFlow(99, 1, 0, triggerData, conditionData, actionData, 0);

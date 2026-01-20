@@ -64,7 +64,7 @@ export const IntentRegistryABI = [
     "inputs": [
       { "name": "flowId", "type": "uint256", "indexed": true, "internalType": "uint256" },
       { "name": "user", "type": "address", "indexed": true, "internalType": "address" },
-      { "name": "triggerType", "type": "uint8", "indexed": false, "internalType": "uint8" },
+      { "name": "triggerType", "type": "uint256", "indexed": false, "internalType": "uint256" },
       { "name": "triggerValue", "type": "uint256", "indexed": false, "internalType": "uint256" }
     ],
     "anonymous": false
