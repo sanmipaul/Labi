@@ -7,6 +7,7 @@ contract IntentVault is IIntentVault, IAccount {
     address private vaultOwner;
     bool private paused;
     IEntryPoint private entryPoint;
+    address private recoveryAddress;
 
     mapping(address => bool) private approvedProtocols;
     mapping(address => uint256) private spendingCaps;
@@ -123,5 +124,15 @@ contract IntentVault is IIntentVault, IAccount {
             (bool success,) = dest[i].call{value: value[i]}(func[i]);
             require(success, "Batch execution failed");
         }
+    }
+
+    // Social Recovery
+    function setRecoveryAddress(address _recovery) external onlyOwner {
+        recoveryAddress = _recovery;
+    }
+
+    function recoverOwnership(address newOwner) external {
+        require(msg.sender == recoveryAddress, "Only recovery address");
+        vaultOwner = newOwner;
     }
 }
