@@ -270,14 +270,16 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                   </div>
                   {actionType === 'crossChainSwap' && (
                     <div>
-                      <label className="block text-sm font-medium mb-1">Destination Chain Endpoint ID</label>
-                      <input 
-                        type="number" 
-                        placeholder="e.g., 30101 for Ethereum"
+                      <label className="block text-sm font-medium mb-1">Destination Chain</label>
+                      <select 
                         value={dstEid}
                         onChange={(e) => setDstEid(e.target.value)}
                         className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
-                      />
+                      >
+                        <option value="">Select Chain</option>
+                        <option value="30101">Ethereum Mainnet</option>
+                        <option value="184">Base</option>
+                      </select>
                     </div>
                   )}
                   <div>
