@@ -45,6 +45,13 @@ contract FlowExecutor {
         dstExecutors[dstEid] = dstExecutor;
     }
 
+    function getSupportedChains() external pure returns (uint32[] memory) {
+        uint32[] memory chains = new uint32[](2);
+        chains[0] = 30101; // Ethereum
+        chains[1] = 184;   // Base
+        return chains;
+    }
+
     function executeFlow(uint256 flowId) external returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
