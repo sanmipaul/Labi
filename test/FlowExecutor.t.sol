@@ -7,6 +7,7 @@ import "../src/FlowExecutor.sol";
 import "../src/triggers/TimeTrigger.sol";
 import "../src/actions/SwapAction.sol";
 import "../src/actions/CrossChainAction.sol";
+import "../src/actions/BatchAction.sol";
 
 contract FlowExecutorTest is Test {
     IntentRegistry registry;
@@ -25,10 +26,12 @@ contract FlowExecutorTest is Test {
         timeTrigger = new TimeTrigger();
         swapAction = new SwapAction();
         crossChainAction = new CrossChainAction(address(0)); // Mock
+        BatchAction batchAction = new BatchAction();
 
         executor.registerTrigger(1, address(timeTrigger));
         executor.registerAction(1, address(swapAction));
         executor.registerAction(2, address(crossChainAction));
+        executor.registerAction(3, address(batchAction));
     }
 
     function test_RegisterTrigger() public {
