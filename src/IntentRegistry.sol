@@ -45,32 +45,32 @@ contract IntentRegistry is IIntentRegistry {
      */
     function createFlow(
         uint8 triggerType,
+        uint8 actionType,
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        Action[] calldata actions,
-        uint256 executionFee
-    ) external override returns (uint256) {
+        bytes calldata actionData,
+        uint32 dstEid
+    ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
-        require(actions.length > 0, "No actions provided");
-
+        require(actionType > 0, "Invalid action type");
+        
         uint256 flowId = ++flowCounter;
         
-        IntentFlow storage newFlow = flows[flowId];
-        newFlow.id = flowId;
-        newFlow.user = msg.sender;
-        newFlow.triggerType = triggerType;
-        newFlow.triggerValue = triggerValue;
-        newFlow.triggerData = triggerData;
-        newFlow.conditionData = conditionData;
-        newFlow.active = true;
-        newFlow.lastExecutedAt = 0;
-        newFlow.executionCount = 0;
-        newFlow.executionFee = executionFee;
-
-        for (uint256 i = 0; i < actions.length; i++) {
-            newFlow.actions.push(actions[i]);
-        }
+        flows[flowId] = IntentFlow({
+            id: flowId,
+            user: msg.sender,
+            triggerType: triggerType,
+            actionType: actionType,
+            triggerValue: triggerValue,
+            triggerData: triggerData,
+            conditionData: conditionData,
+            actionData: actionData,
+            dstEid: dstEid,
+            active: true,
+            lastExecutedAt: 0,
+            executionCount: 0
+        });
 
         userFlows[msg.sender].push(flowId);
 

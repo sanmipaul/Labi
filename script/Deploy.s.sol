@@ -9,6 +9,7 @@ import "../src/GasOracle.sol";
 import "../src/triggers/TimeTrigger.sol";
 import "../src/triggers/PriceTrigger.sol";
 import "../src/actions/SwapAction.sol";
+import "../src/actions/CrossChainAction.sol";
 
 contract DeployLabi is Script {
     IntentRegistry public registry;
@@ -18,18 +19,17 @@ contract DeployLabi is Script {
     TimeTrigger public timeTrigger;
     PriceTrigger public priceTrigger;
     SwapAction public swapAction;
+    CrossChainAction public crossChainAction;
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address lzEndpoint = vm.envAddress("LZ_ENDPOINT"); // LayerZero endpoint address
         vm.startBroadcast(deployerPrivateKey);
 
         registry = new IntentRegistry();
         console.log("IntentRegistry deployed at:", address(registry));
 
-        gasOracle = new GasOracle(address(0)); // Start with fallback
-        console.log("GasOracle deployed at:", address(gasOracle));
-
-        executor = new FlowExecutor(address(registry), msg.sender);
+        executor = new FlowExecutor(address(registry), lzEndpoint);
         console.log("FlowExecutor deployed at:", address(executor));
 
         simulator = new ExecutionSimulator(address(registry), address(gasOracle));
@@ -44,9 +44,13 @@ contract DeployLabi is Script {
         swapAction = new SwapAction();
         console.log("SwapAction deployed at:", address(swapAction));
 
+        crossChainAction = new CrossChainAction(lzEndpoint);
+        console.log("CrossChainAction deployed at:", address(crossChainAction));
+
         executor.registerTrigger(1, address(timeTrigger));
         executor.registerTrigger(2, address(priceTrigger));
         executor.registerAction(1, address(swapAction));
+        executor.registerAction(2, address(crossChainAction));
 
         console.log("Triggers and actions registered");
 

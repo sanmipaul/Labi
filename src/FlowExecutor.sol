@@ -5,8 +5,9 @@ import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ILayerZeroEndpointV2} from "./LayerZeroInterfaces.sol";
+import {MessagingParams, MessagingReceipt, Origin} from "./LayerZeroInterfaces.sol";
+import {CrossChainUtils} from "./CrossChainUtils.sol";
 
 /**
  * @title FlowExecutor
@@ -22,6 +23,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract FlowExecutor is Ownable, Pausable {
     IIntentRegistry public registry;
+    ILayerZeroEndpointV2 public lzEndpoint;
     
     address public protocolFeeRecipient;
     uint16 public protocolFeeBps = 1000; // 10% protocol fee
@@ -29,6 +31,7 @@ contract FlowExecutor is Ownable, Pausable {
 
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
+    mapping(uint32 => bytes32) public dstExecutors; // dstEid => dst FlowExecutor address
 
     event ExecutionAttempted(uint256 indexed flowId, bool success, string reason);
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
@@ -38,23 +41,11 @@ contract FlowExecutor is Ownable, Pausable {
     event BaseFeeUpdated(uint256 newBaseFee);
     event FeeDistributed(uint256 indexed flowId, address indexed executor, uint256 executorAmount, uint256 protocolAmount);
 
-    constructor(address registryAddress, address _protocolFeeRecipient) Ownable(msg.sender) {
+    constructor(address registryAddress, address lzEndpointAddress) {
         require(registryAddress != address(0), "Invalid registry");
-        require(_protocolFeeRecipient != address(0), "Invalid recipient");
+        require(lzEndpointAddress != address(0), "Invalid LZ endpoint");
         registry = IIntentRegistry(registryAddress);
-        protocolFeeRecipient = _protocolFeeRecipient;
-    }
-
-    function setProtocolFeeRecipient(address _protocolFeeRecipient) external onlyOwner {
-        require(_protocolFeeRecipient != address(0), "Invalid recipient");
-        protocolFeeRecipient = _protocolFeeRecipient;
-        emit ProtocolFeeRecipientUpdated(_protocolFeeRecipient);
-    }
-
-    function setProtocolFeeBps(uint16 _protocolFeeBps) external onlyOwner {
-        require(_protocolFeeBps <= 10000, "BPS too high");
-        protocolFeeBps = _protocolFeeBps;
-        emit ProtocolFeeBpsUpdated(_protocolFeeBps);
+        lzEndpoint = ILayerZeroEndpointV2(lzEndpointAddress);
     }
 
     function setBaseFee(uint256 _baseFee) external onlyOwner {
@@ -90,31 +81,18 @@ contract FlowExecutor is Ownable, Pausable {
         emit ActionRegistered(actionType, actionContract);
     }
 
-    /**
-     * @notice Executes multiple intent flows in a single transaction
-     * @dev Iterates through flow IDs and attempts execution for each. 
-     * Continues to next flow even if one fails.
-     * @param flowIds Array of flow IDs to execute
-     */
-    function executeFlowsBatch(uint256[] calldata flowIds) external whenNotPaused {
-        for (uint256 i = 0; i < flowIds.length; i++) {
-            try this.executeFlow(flowIds[i]) {
-                // Individual execution results are handled within executeFlow events
-            } catch {
-                // If the call to executeFlow itself reverts (e.g. out of gas for that flow)
-                emit ExecutionAttempted(flowIds[i], false, "Batch execution call reverted");
-            }
-        }
+    function setDstExecutor(uint32 dstEid, bytes32 dstExecutor) external {
+        dstExecutors[dstEid] = dstExecutor;
     }
 
-    /**
-     * @notice Executes an intent flow if all conditions are met
-     * @dev Can only be called when contract is not paused. Checks vault pause state,
-     * trigger conditions, and custom conditions before executing the associated action.
-     * @param flowId The ID of the flow to execute
-     * @return bool Returns true if execution succeeds, false otherwise
-     */
-    function executeFlow(uint256 flowId) external whenNotPaused returns (bool) {
+    function getSupportedChains() external pure returns (uint32[] memory) {
+        uint32[] memory chains = new uint32[](2);
+        chains[0] = 30101; // Ethereum
+        chains[1] = 184;   // Base
+        return chains;
+    }
+
+    function executeFlow(uint256 flowId) external returns (bool) {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
 
         require(flow.active, "Flow is not active");
@@ -153,16 +131,25 @@ contract FlowExecutor is Ownable, Pausable {
                 return false;
             }
 
-            try actionContract.execute(vaultAddress, action.actionData) returns (bool success) {
-                if (!success) {
-                    emit ExecutionAttempted(flowId, false, "Action execution failed");
-                    return false;
-                }
-            } catch Error(string memory reason) {
-                emit ExecutionAttempted(flowId, false, reason);
-                return false;
-            } catch {
-                emit ExecutionAttempted(flowId, false, "Unknown error during action execution");
+        uint8 actionType = flow.actionType;
+        if (flow.dstEid != 0) {
+            require(CrossChainUtils.isSupportedChain(flow.dstEid), "Unsupported chain");
+            actionType = 2; // CrossChainAction
+            bytes32 dstAddress = dstExecutors[flow.dstEid];
+            require(dstAddress != bytes32(0), "Dst executor not set");
+            actionData = abi.encode(flow.dstEid, dstAddress, flowId, actionData);
+        }
+
+        IAction actionContract = actionContracts[actionType];
+        require(address(actionContract) != address(0), "Action not registered");
+
+        try actionContract.execute(vaultAddress, actionData) returns (bool success) {
+            if (success) {
+                registry.recordExecution(flowId);
+                emit ExecutionAttempted(flowId, true, "Success");
+                return true;
+            } else {
+                emit ExecutionAttempted(flowId, false, "Action execution failed");
                 return false;
             }
         }
@@ -195,6 +182,25 @@ contract FlowExecutor is Ownable, Pausable {
         }
 
         emit FeeDistributed(flowId, msg.sender, executorAmount, protocolAmount);
+    }
+
+    function sendCrossChainIntent(uint32 dstEid, bytes32 dstAddress, bytes calldata message, MessagingParams calldata params) external payable {
+        lzEndpoint.send{value: msg.value}(params, msg.sender);
+    }
+
+    function lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _message,
+        address _executor,
+        bytes calldata _extraData
+    ) external payable {
+        require(msg.sender == address(lzEndpoint), "Only LZ endpoint");
+        // Decode and execute the cross-chain intent
+        (uint256 flowId, bytes memory actionData) = abi.decode(_message, (uint256, bytes));
+        // Assume we have a way to execute on this chain
+        // For now, call executeFlow
+        this.executeFlow(flowId);
     }
 
     function _evaluateCondition(IIntentVault vault, bytes memory conditionData)
