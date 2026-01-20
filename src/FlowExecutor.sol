@@ -4,9 +4,12 @@ import {IIntentRegistry} from "./IIntentRegistry.sol";
 import {IIntentVault} from "./IIntentVault.sol";
 import {ITrigger} from "./triggers/ITrigger.sol";
 import {IAction} from "./actions/IAction.sol";
+import {ILayerZeroEndpointV2} from "./LayerZeroInterfaces.sol";
+import {MessagingParams, MessagingReceipt, Origin} from "./LayerZeroInterfaces.sol";
 
 contract FlowExecutor {
     IIntentRegistry public registry;
+    ILayerZeroEndpointV2 public lzEndpoint;
     
     mapping(uint256 => ITrigger) public triggerContracts;
     mapping(uint256 => IAction) public actionContracts;
@@ -15,9 +18,11 @@ contract FlowExecutor {
     event TriggerRegistered(uint8 indexed triggerType, address triggerContract);
     event ActionRegistered(uint8 indexed actionType, address actionContract);
 
-    constructor(address registryAddress) {
+    constructor(address registryAddress, address lzEndpointAddress) {
         require(registryAddress != address(0), "Invalid registry");
+        require(lzEndpointAddress != address(0), "Invalid LZ endpoint");
         registry = IIntentRegistry(registryAddress);
+        lzEndpoint = ILayerZeroEndpointV2(lzEndpointAddress);
     }
 
     function registerTrigger(uint8 triggerType, address triggerContract) external {
@@ -90,6 +95,25 @@ contract FlowExecutor {
             emit ExecutionAttempted(flowId, false, "Unknown error");
             return false;
         }
+    }
+
+    function sendCrossChainIntent(uint32 dstEid, bytes32 dstAddress, bytes calldata message, MessagingParams calldata params) external payable {
+        lzEndpoint.send{value: msg.value}(params, msg.sender);
+    }
+
+    function lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _message,
+        address _executor,
+        bytes calldata _extraData
+    ) external payable {
+        require(msg.sender == address(lzEndpoint), "Only LZ endpoint");
+        // Decode and execute the cross-chain intent
+        (uint256 flowId, bytes memory actionData) = abi.decode(_message, (uint256, bytes));
+        // Assume we have a way to execute on this chain
+        // For now, call executeFlow
+        this.executeFlow(flowId);
     }
 
     function _evaluateCondition(IIntentVault vault, bytes memory conditionData)
