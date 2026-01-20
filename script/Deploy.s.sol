@@ -10,6 +10,8 @@ import "../src/triggers/TimeTrigger.sol";
 import "../src/triggers/PriceTrigger.sol";
 import "../src/actions/SwapAction.sol";
 import "../src/actions/CrossChainAction.sol";
+import "../src/IntentVault.sol";
+import "../src/actions/BatchAction.sol";
 
 contract DeployLabi is Script {
     IntentRegistry public registry;
@@ -24,6 +26,7 @@ contract DeployLabi is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address lzEndpoint = vm.envAddress("LZ_ENDPOINT"); // LayerZero endpoint address
+        address entryPoint = vm.envAddress("ENTRY_POINT"); // ERC-4337 EntryPoint address
         vm.startBroadcast(deployerPrivateKey);
 
         registry = new IntentRegistry();
@@ -47,10 +50,18 @@ contract DeployLabi is Script {
         crossChainAction = new CrossChainAction(lzEndpoint);
         console.log("CrossChainAction deployed at:", address(crossChainAction));
 
+        BatchAction batchAction = new BatchAction();
+        console.log("BatchAction deployed at:", address(batchAction));
+
         executor.registerTrigger(1, address(timeTrigger));
         executor.registerTrigger(2, address(priceTrigger));
         executor.registerAction(1, address(swapAction));
         executor.registerAction(2, address(crossChainAction));
+        executor.registerAction(3, address(batchAction));
+
+        // Deploy IntentVault as AA account
+        IntentVault vault = new IntentVault(entryPoint);
+        console.log("IntentVault (AA) deployed at:", address(vault));
 
         console.log("Triggers and actions registered");
 

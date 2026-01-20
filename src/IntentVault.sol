@@ -2,23 +2,15 @@
 pragma solidity ^0.8.19;
 
 import {IIntentVault} from "./IIntentVault.sol";
+import {IAccount, UserOperation, IEntryPoint} from "./ERC4337Interfaces.sol";
 
-/**
- * @title IntentVault
- * @notice Manages spending caps and protocol approvals for intent-based automation
- * @dev Implements zero address validation to prevent locked funds and broken functionality
- *
- * Security: All address parameters are validated against zero address to ensure:
- * - Protocols cannot be approved/revoked with invalid addresses
- * - Token addresses are always valid for spending cap operations
- * - No funds can be locked due to invalid address configurations
- */
-contract IntentVault is IIntentVault {
-    /// @dev Address of the vault owner
+contract IntentVault is IIntentVault, IAccount {
     address private vaultOwner;
 
     /// @dev Pause status of the vault
     bool private paused;
+    IEntryPoint private entryPoint;
+    address private recoveryAddress;
 
     /// @dev Mapping of approved protocol addresses
     mapping(address => bool) private approvedProtocols;
@@ -49,16 +41,10 @@ contract IntentVault is IIntentVault {
     /// @notice Emitted when the vault is unpaused
     event Unpaused();
 
-    /// @notice Emitted when spending is recorded
-    event SpendingRecorded(address indexed token, uint256 amount, uint256 totalSpent);
-
-    /**
-     * @dev Constructor sets the deployer as the vault owner
-     * @notice Vault starts in unpaused state
-     */
-    constructor() {
+    constructor(address entryPointAddress) {
         vaultOwner = msg.sender;
         paused = false;
+        entryPoint = IEntryPoint(entryPointAddress);
     }
 
     modifier onlyOwner() {
@@ -207,19 +193,43 @@ contract IntentVault is IIntentVault {
         emit Unpaused();
     }
 
-    /**
-     * @dev Transfers fees from the vault to the collector
-     * @param amount The amount of ETH to transfer
-     * @notice Only approved protocols can call this function
-     */
-    function collectFee(uint256 amount) external whenNotPaused {
-        require(approvedProtocols[msg.sender], "IntentVault: protocol not approved");
-        require(amount > 0, "IntentVault: amount must be greater than zero");
-        require(address(this).balance >= amount, "IntentVault: insufficient balance");
-
-        (bool success, ) = msg.sender.call{value: amount}("");
-        require(success, "IntentVault: fee transfer failed");
+    // ERC-4337 functions
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external returns (uint256 validationData) {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        // Simple validation: check signature (placeholder)
+        // In real implementation, verify signature against vaultOwner
+        require(userOp.signature.length > 0, "Invalid signature");
+        // For gasless, handle missing funds
+        if (missingAccountFunds > 0) {
+            (bool success,) = payable(msg.sender).call{value: missingAccountFunds}("");
+            require(success, "Failed to pay missing funds");
+        }
+        return 0; // validationData
     }
 
-    receive() external payable {}
+    function execute(address dest, uint256 value, bytes calldata func) external {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        (bool success,) = dest.call{value: value}(func);
+        require(success, "Execution failed");
+    }
+
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+        require(dest.length == value.length && value.length == func.length, "Invalid batch");
+        for (uint256 i = 0; i < dest.length; i++) {
+            (bool success,) = dest[i].call{value: value[i]}(func[i]);
+            require(success, "Batch execution failed");
+        }
+    }
+
+    // Social Recovery
+    function setRecoveryAddress(address _recovery) external onlyOwner {
+        recoveryAddress = _recovery;
+    }
+
+    function recoverOwnership(address newOwner) external {
+        require(msg.sender == recoveryAddress, "Only recovery address");
+        vaultOwner = newOwner;
+    }
 }

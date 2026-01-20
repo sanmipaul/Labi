@@ -9,5 +9,10 @@ interface IIntentVault {
     function isPaused() external view returns (bool);
     function pause() external;
     function unpause() external;
-    function collectFee(uint256 amount) external;
+    // ERC-4337
+    function execute(address dest, uint256 value, bytes calldata func) external;
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external;
+    // Social Recovery
+    function setRecoveryAddress(address _recovery) external;
+    function recoverOwnership(address newOwner) external;
 }

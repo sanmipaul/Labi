@@ -7,6 +7,7 @@ import "../src/FlowExecutor.sol";
 import "../src/triggers/TimeTrigger.sol";
 import "../src/actions/SwapAction.sol";
 import "../src/actions/CrossChainAction.sol";
+import "../src/actions/BatchAction.sol";
 
 contract FlowExecutorTest is Test, IntentVault {
     IntentRegistry registry;
@@ -23,10 +24,12 @@ contract FlowExecutorTest is Test, IntentVault {
         timeTrigger = new TimeTrigger();
         swapAction = new SwapAction();
         crossChainAction = new CrossChainAction(address(0)); // Mock
+        BatchAction batchAction = new BatchAction();
 
         executor.registerTrigger(1, address(timeTrigger));
         executor.registerAction(1, address(swapAction));
         executor.registerAction(2, address(crossChainAction));
+        executor.registerAction(3, address(batchAction));
     }
 
     function test_RegisterTrigger() public {
@@ -149,5 +152,20 @@ contract FlowExecutorTest is Test, IntentVault {
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
         assertEq(flow.actionType, 2);
         assertEq(flow.dstEid, 30101);
+    }
+
+    function test_BatchFlowCreation() public {
+        uint256 currentTime = block.timestamp;
+        uint256 dayOfWeek = (currentTime / 1 days) % 7;
+        uint256 timeOfDay = currentTime % 1 days;
+
+        bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
+        bytes memory conditionData = abi.encode(0, address(0));
+        bytes memory actionData = abi.encode(new address[](0), new uint256[](0), new bytes[](0)); // Empty batch for test
+
+        uint256 flowId = registry.createFlow(1, 3, 0, triggerData, conditionData, actionData, 0);
+
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.actionType, 3);
     }
 }
