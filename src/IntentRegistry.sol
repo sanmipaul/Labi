@@ -26,7 +26,8 @@ contract IntentRegistry is IIntentRegistry {
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        bytes calldata actionData
+        bytes calldata actionData,
+        uint32 dstEid
     ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
         
@@ -40,6 +41,7 @@ contract IntentRegistry is IIntentRegistry {
             triggerData: triggerData,
             conditionData: conditionData,
             actionData: actionData,
+            dstEid: dstEid,
             active: true,
             lastExecutedAt: 0,
             executionCount: 0
