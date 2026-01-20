@@ -73,6 +73,33 @@ export const IntentRegistryABI = [
 
 export const IntentRegistryAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Local Anvil Deployment Address
 
+export const IntentVaultABI = [
+  {
+    "type": "function",
+    "name": "execute",
+    "inputs": [
+      { "name": "dest", "type": "address", "internalType": "address" },
+      { "name": "value", "type": "uint256", "internalType": "uint256" },
+      { "name": "func", "type": "bytes", "internalType": "bytes" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeBatch",
+    "inputs": [
+      { "name": "dest", "type": "address[]", "internalType": "address[]" },
+      { "name": "value", "type": "uint256[]", "internalType": "uint256[]" },
+      { "name": "func", "type": "bytes[]", "internalType": "bytes[]" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+] as const;
+
+export const IntentVaultAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // Local Anvil Deployment Address
+
 export const FlowExecutorABI = [
   {
     "type": "function",
