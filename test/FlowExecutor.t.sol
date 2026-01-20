@@ -135,4 +135,19 @@ contract FlowExecutorTest is Test {
         assertEq(flow.actionType, 2);
         assertEq(flow.dstEid, 30101);
     }
+
+    function test_BatchFlowCreation() public {
+        uint256 currentTime = block.timestamp;
+        uint256 dayOfWeek = (currentTime / 1 days) % 7;
+        uint256 timeOfDay = currentTime % 1 days;
+
+        bytes memory triggerData = abi.encode(dayOfWeek, timeOfDay, 0);
+        bytes memory conditionData = abi.encode(0, address(0));
+        bytes memory actionData = abi.encode(new address[](0), new uint256[](0), new bytes[](0)); // Empty batch for test
+
+        uint256 flowId = registry.createFlow(1, 3, 0, triggerData, conditionData, actionData, 0);
+
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.actionType, 3);
+    }
 }
