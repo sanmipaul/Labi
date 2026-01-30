@@ -16,7 +16,7 @@ contract IntentVaultTest is Test {
         protocol2 = address(0x2222);
         tokenA = address(0x3333);
 
-        vault = new IntentVault();
+        vault = new IntentVault(address(0x1234)); // Mock entryPoint
     }
 
     function test_OwnerIsSet() public {
@@ -117,5 +117,26 @@ contract IntentVaultTest is Test {
         vm.prank(protocol1);
         vm.expectRevert("Only owner");
         vault.approveProtocol(protocol2);
+    }
+
+    function test_ExecuteAsEntryPoint() public {
+        // Mock entryPoint
+        address entryPoint = address(0x1234);
+        vm.prank(entryPoint);
+        vault.execute(address(0x5678), 0, abi.encodeWithSignature("someFunc()"));
+        // Since it's a mock, just check no revert
+    }
+
+    function test_ExecuteBatch() public {
+        address entryPoint = address(0x1234);
+        address[] memory dest = new address[](1);
+        uint256[] memory value = new uint256[](1);
+        bytes[] memory func = new bytes[](1);
+        dest[0] = address(0x5678);
+        value[0] = 0;
+        func[0] = abi.encodeWithSignature("someFunc()");
+
+        vm.prank(entryPoint);
+        vault.executeBatch(dest, value, func);
     }
 }

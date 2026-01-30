@@ -16,12 +16,20 @@ contract IntentRegistryTest is Test {
 
     function test_CreateFlow() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
+            1,
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours),
+            0
         );
 
         assertEq(flowId, 1);
@@ -29,28 +37,46 @@ contract IntentRegistryTest is Test {
 
     function test_GetFlow() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
+            1,
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours),
+            0
         );
 
         IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
         assertEq(flow.user, user1);
         assertEq(flow.triggerType, 1);
+        assertEq(flow.actionType, 1);
         assertEq(flow.active, true);
+        assertEq(flow.actions.length, 1);
+        assertEq(flow.actions[0].actionType, 1);
     }
 
     function test_GetUserFlows() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId1 = registry.createFlow(
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
 
         vm.prank(user1);
@@ -59,7 +85,8 @@ contract IntentRegistryTest is Test {
             50e18,
             abi.encode(address(0x1234), 100e18, true),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
 
         uint256[] memory userFlows = registry.getUserFlows(user1);
@@ -70,12 +97,19 @@ contract IntentRegistryTest is Test {
 
     function test_UpdateFlowStatus() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
 
         IIntentRegistry.IntentFlow memory flowBefore = registry.getFlow(flowId);
@@ -90,12 +124,19 @@ contract IntentRegistryTest is Test {
 
     function test_RecordExecution() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
 
         IIntentRegistry.IntentFlow memory flowBefore = registry.getFlow(flowId);
@@ -111,12 +152,19 @@ contract IntentRegistryTest is Test {
 
     function test_CannotUpdateFlowStatusIfNotOwner() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         uint256 flowId = registry.createFlow(
             1,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
 
         vm.prank(user2);
@@ -126,13 +174,20 @@ contract IntentRegistryTest is Test {
 
     function test_InvalidTriggerTypeRevert() public {
         vm.prank(user1);
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+        });
+
         vm.expectRevert("Invalid trigger type");
         registry.createFlow(
             5,
             0,
             abi.encode(0, 0, 0),
             abi.encode(100e18, address(0)),
-            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours)
+            actions,
+            0
         );
     }
 
@@ -142,11 +197,17 @@ contract IntentRegistryTest is Test {
     }
 
     function test_MultipleUsersMultipleFlows() public {
+        IIntentRegistry.Action[] memory actions = new IIntentRegistry.Action[](1);
+        actions[0] = IIntentRegistry.Action({
+            actionType: 1,
+            actionData: abi.encode(address(0), address(0), 0, 0, 0)
+        });
+
         vm.prank(user1);
-        uint256 user1Flow1 = registry.createFlow(1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0));
+        uint256 user1Flow1 = registry.createFlow(1, 1, 0, abi.encode(0, 0, 0), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0), 0);
 
         vm.prank(user2);
-        uint256 user2Flow1 = registry.createFlow(2, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0));
+        uint256 user2Flow1 = registry.createFlow(2, 1, 0, abi.encode(address(0), 0, true), abi.encode(100e18, address(0)), abi.encode(address(0), address(0), 0, 0, 0), 0);
 
         uint256[] memory user1Flows = registry.getUserFlows(user1);
         uint256[] memory user2Flows = registry.getUserFlows(user2);
@@ -155,5 +216,22 @@ contract IntentRegistryTest is Test {
         assertEq(user2Flows.length, 1);
         assertEq(user1Flows[0], user1Flow1);
         assertEq(user2Flows[0], user2Flow1);
+    }
+
+    function test_CreateCrossChainFlow() public {
+        vm.prank(user1);
+        uint256 flowId = registry.createFlow(
+            1,
+            2,
+            0,
+            abi.encode(0, 0, 0),
+            abi.encode(100e18, address(0)),
+            abi.encode(address(0xAAAA), address(0xBBBB), 10e18, 5e18, block.timestamp + 1 hours),
+            30101
+        );
+
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.actionType, 2);
+        assertEq(flow.dstEid, 30101);
     }
 }

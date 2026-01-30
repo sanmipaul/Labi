@@ -38,29 +38,35 @@ contract IntentRegistry is IIntentRegistry {
      * @param triggerValue The trigger threshold value
      * @param triggerData Encoded trigger configuration data
      * @param conditionData Encoded condition logic data
-     * @param actionData Encoded action execution data
+     * @param actions Array of actions to execute
+     * @param executionFee Fee per execution
      * @return flowId The ID of the newly created flow
      * @dev Flow creator (msg.sender) is automatically validated as non-zero by EVM
      */
     function createFlow(
         uint8 triggerType,
+        uint8 actionType,
         uint256 triggerValue,
         bytes calldata triggerData,
         bytes calldata conditionData,
-        bytes calldata actionData
+        bytes calldata actionData,
+        uint32 dstEid
     ) external returns (uint256) {
         require(triggerType > 0 && triggerType <= 2, "Invalid trigger type");
-
+        require(actionType > 0, "Invalid action type");
+        
         uint256 flowId = ++flowCounter;
         
         flows[flowId] = IntentFlow({
             id: flowId,
             user: msg.sender,
             triggerType: triggerType,
+            actionType: actionType,
             triggerValue: triggerValue,
             triggerData: triggerData,
             conditionData: conditionData,
             actionData: actionData,
+            dstEid: dstEid,
             active: true,
             lastExecutedAt: 0,
             executionCount: 0

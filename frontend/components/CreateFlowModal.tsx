@@ -7,7 +7,13 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { TokenModal } from '@/components/TokenModal';
 
 type TriggerType = 'time' | 'price';
-type ActionType = 'swap';
+type ActionType = 'swap' | 'crossChainSwap' | 'batch';
+
+type Token = {
+  symbol: string;
+  name: string;
+  address: string;
+};
 
 type Token = {
   symbol: string;
@@ -34,6 +40,7 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [swapAmount, setSwapAmount] = useState('');
   const [tokenIn, setTokenIn] = useState<Token>(DEFAULT_TOKEN_IN);
   const [tokenOut, setTokenOut] = useState<Token>(DEFAULT_TOKEN_OUT);
+  const [dstEid, setDstEid] = useState('');
 
   // Modal State
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
@@ -86,16 +93,21 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
         ]
       );
 
+      const actionTypeId = actionType === 'swap' ? 1 : actionType === 'crossChainSwap' ? 2 : 3;
+      const dstEidValue = dstEid ? BigInt(dstEid) : BigInt(0);
+
       writeContract({
         address: IntentRegistryAddress,
         abi: IntentRegistryABI,
         functionName: 'createFlow',
         args: [
           typeId,
+          actionTypeId,
           value,
           triggerData,
           conditionData,
-          actionData
+          actionData,
+          dstEidValue
         ],
       });
     } catch (e) {
@@ -124,6 +136,9 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
           </div>
 
           <div className="p-6 max-h-[70vh] overflow-y-auto">
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm">
+              <strong>ERC-4337 Support:</strong> Flows can now be executed via smart accounts for gasless transactions and batch operations.
+            </div>
             {/* Success Message */}
             {isSuccess && (
               <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl flex items-center gap-2">
@@ -245,6 +260,32 @@ export function CreateFlowModal({ isOpen, onClose }: { isOpen: boolean; onClose:
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Configure Action</h3>
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Action Type</label>
+                    <select 
+                      value={actionType}
+                      onChange={(e) => setActionType(e.target.value as ActionType)}
+                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+                    >
+                      <option value="swap">Swap on this chain</option>
+                      <option value="crossChainSwap">Cross-chain Swap</option>
+                      <option value="batch">Batch Operations</option>
+                    </select>
+                  </div>
+                  {actionType === 'crossChainSwap' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Destination Chain</label>
+                      <select 
+                        value={dstEid}
+                        onChange={(e) => setDstEid(e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+                      >
+                        <option value="">Select Chain</option>
+                        <option value="30101">Ethereum Mainnet</option>
+                        <option value="184">Base</option>
+                      </select>
+                    </div>
+                  )}
                   <div>
                       <label className="block text-sm font-medium mb-1">Swap Amount</label>
                       <div className="flex gap-2">

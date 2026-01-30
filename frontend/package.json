@@ -15,8 +15,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
-    "viem": "^2.16.0",
-    "wagmi": "^2.13.0"
+    "viem": "^2.43.3",
+    "wagmi": "^3.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
