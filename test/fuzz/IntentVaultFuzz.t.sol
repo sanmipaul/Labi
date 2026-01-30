@@ -124,4 +124,87 @@ contract IntentVaultFuzzTest is Test {
         vm.expectRevert("IntentVault: amount must be greater than zero");
         vault.recordSpending(token, 0);
     }
+
+    /**
+     * @notice Fuzz test: Pause state blocks spending
+     * @param cap Spending cap
+     * @param amount Amount to spend
+     */
+    function testFuzz_PauseBlocksSpending(uint256 cap, uint256 amount) public {
+        cap = bound(cap, 1, type(uint128).max);
+        amount = bound(amount, 1, cap);
+
+        vault.setSpendingCap(token, cap);
+        vault.pause();
+
+        vm.prank(protocol);
+        vm.expectRevert("IntentVault: vault is paused");
+        vault.recordSpending(token, amount);
+    }
+
+    /**
+     * @notice Fuzz test: Unpause allows spending again
+     * @param cap Spending cap
+     * @param amount Amount to spend
+     */
+    function testFuzz_UnpauseAllowsSpending(uint256 cap, uint256 amount) public {
+        cap = bound(cap, 1, type(uint128).max);
+        amount = bound(amount, 1, cap);
+
+        vault.setSpendingCap(token, cap);
+        vault.pause();
+        vault.unpause();
+
+        vm.prank(protocol);
+        vault.recordSpending(token, amount);
+
+        assertEq(vault.getRemainingSpendingCap(token), cap - amount);
+    }
+
+    /**
+     * @notice Fuzz test: Multiple tokens have independent caps
+     * @param cap1 Cap for token 1
+     * @param cap2 Cap for token 2
+     * @param spend1 Spend for token 1
+     * @param spend2 Spend for token 2
+     */
+    function testFuzz_IndependentTokenCaps(
+        uint256 cap1,
+        uint256 cap2,
+        uint256 spend1,
+        uint256 spend2
+    ) public {
+        address token2 = address(0x3333);
+
+        cap1 = bound(cap1, 1, type(uint128).max);
+        cap2 = bound(cap2, 1, type(uint128).max);
+        spend1 = bound(spend1, 1, cap1);
+        spend2 = bound(spend2, 1, cap2);
+
+        vault.setSpendingCap(token, cap1);
+        vault.setSpendingCap(token2, cap2);
+
+        vm.startPrank(protocol);
+        vault.recordSpending(token, spend1);
+        vault.recordSpending(token2, spend2);
+        vm.stopPrank();
+
+        // Verify independent tracking
+        assertEq(vault.getRemainingSpendingCap(token), cap1 - spend1);
+        assertEq(vault.getRemainingSpendingCap(token2), cap2 - spend2);
+    }
+
+    /**
+     * @notice Fuzz test: Protocol approval/revocation
+     * @param protocolAddr Random protocol address
+     */
+    function testFuzz_ProtocolApprovalRevocation(address protocolAddr) public {
+        vm.assume(protocolAddr != address(0));
+
+        vault.approveProtocol(protocolAddr);
+        assertTrue(vault.isApprovedProtocol(protocolAddr));
+
+        vault.revokeProtocol(protocolAddr);
+        assertFalse(vault.isApprovedProtocol(protocolAddr));
+    }
 }
