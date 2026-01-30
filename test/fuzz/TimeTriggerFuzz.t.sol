@@ -164,4 +164,90 @@ contract TimeTriggerFuzzTest is Test {
         // Should return true if 24h+ since last execution and day/time match
         assertTrue(timeTrigger.isMet(1, triggerData));
     }
+
+    /**
+     * @notice Fuzz test: Day calculation consistency
+     * @param timestamp Random timestamp
+     */
+    function testFuzz_DayCalculationConsistency(uint256 timestamp) public {
+        timestamp = bound(timestamp, 1, type(uint64).max);
+        vm.warp(timestamp);
+
+        uint256 expectedDay = (timestamp / SECONDS_PER_DAY) % 7;
+
+        // Test all 7 days
+        for (uint256 day = 0; day < 7; day++) {
+            uint256 currentTimeOfDay = timestamp % SECONDS_PER_DAY;
+            bytes memory triggerData = abi.encode(day, currentTimeOfDay, uint256(0));
+
+            bool result = timeTrigger.isMet(1, triggerData);
+
+            if (day == expectedDay) {
+                assertTrue(result);
+            } else {
+                assertFalse(result);
+            }
+        }
+    }
+
+    /**
+     * @notice Fuzz test: Trigger type is always 1
+     */
+    function testFuzz_TriggerTypeConstant() public {
+        assertEq(timeTrigger.triggerType(), 1);
+    }
+
+    /**
+     * @notice Fuzz test: Edge case - midnight (time = 0)
+     * @param timestamp Timestamp aligned to midnight
+     */
+    function testFuzz_MidnightEdgeCase(uint256 timestamp) public {
+        // Align to midnight
+        timestamp = bound(timestamp, 1 days, type(uint64).max);
+        timestamp = (timestamp / SECONDS_PER_DAY) * SECONDS_PER_DAY;
+        vm.warp(timestamp);
+
+        uint256 currentDay = (timestamp / SECONDS_PER_DAY) % 7;
+
+        bytes memory triggerData = abi.encode(currentDay, uint256(0), uint256(0));
+
+        // Should work at midnight
+        assertTrue(timeTrigger.isMet(1, triggerData));
+    }
+
+    /**
+     * @notice Fuzz test: Edge case - end of day (time = 86399)
+     * @param timestamp Timestamp near end of day
+     */
+    function testFuzz_EndOfDayEdgeCase(uint256 timestamp) public {
+        // Align to end of day
+        timestamp = bound(timestamp, 1 days, type(uint64).max - SECONDS_PER_DAY);
+        timestamp = ((timestamp / SECONDS_PER_DAY) * SECONDS_PER_DAY) + 86399;
+        vm.warp(timestamp);
+
+        uint256 currentDay = (timestamp / SECONDS_PER_DAY) % 7;
+
+        bytes memory triggerData = abi.encode(currentDay, uint256(86399), uint256(0));
+
+        // Should work at end of day
+        assertTrue(timeTrigger.isMet(1, triggerData));
+    }
+
+    /**
+     * @notice Fuzz test: Week wrap-around
+     * @param weekNumber Week number to test
+     */
+    function testFuzz_WeekWrapAround(uint256 weekNumber) public {
+        weekNumber = bound(weekNumber, 1, 1000);
+
+        // Set timestamp to start of week
+        uint256 timestamp = weekNumber * 7 * SECONDS_PER_DAY;
+        vm.warp(timestamp);
+
+        uint256 currentDay = (timestamp / SECONDS_PER_DAY) % 7;
+        assertEq(currentDay, 0); // Should be day 0
+
+        bytes memory triggerData = abi.encode(uint256(0), uint256(0), uint256(0));
+        assertTrue(timeTrigger.isMet(1, triggerData));
+    }
 }
