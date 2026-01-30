@@ -1101,3 +1101,170 @@ contract FailedExecutionHandlingTest is IntegrationTestBase {
         assertEq(registry.getFlow(flowId).lastExecutedAt, 0);
     }
 }
+
+/**
+ * @title SpendingCapIntegrationTest
+ * @notice Tests for spending cap enforcement during flow execution
+ */
+contract SpendingCapIntegrationTest is IntegrationTestBase {
+
+    function test_ExecutionRespectsSpendingCap() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execute flow
+        executor.executeFlow(flowId);
+
+        // Verify spending was recorded
+        uint256 remaining = vault1.getRemainingSpendingCap(address(tokenA));
+        assertEq(remaining, SPENDING_CAP - SWAP_AMOUNT);
+    }
+
+    function test_ExecutionFailsWhenSpendingCapExceeded() public {
+        // First, set a very low spending cap
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), 50e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        // Try to spend 100e18 when cap is 50e18
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail due to spending cap
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_MultipleExecutionsTrackCumulativeSpending() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18,
+            block.timestamp + 1 hours
+        );
+
+        // Create multiple flows
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        vm.stopPrank();
+
+        // Execute first flow
+        executor.executeFlow(flowId1);
+        assertEq(vault1.getRemainingSpendingCap(address(tokenA)), SPENDING_CAP - 100e18);
+
+        // Execute second flow
+        executor.executeFlow(flowId2);
+        assertEq(vault1.getRemainingSpendingCap(address(tokenA)), SPENDING_CAP - 200e18);
+    }
+
+    function test_SpendingCapResetAllowsNewExecutions() public {
+        // Set low spending cap
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), 100e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // First execution succeeds
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Second execution fails (cap exhausted)
+        vm.prank(address(vault1));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        success = executor.executeFlow(flowId2);
+        assertFalse(success);
+
+        // Reset spending tracker
+        vm.prank(user1);
+        vault1.resetSpendingTracker(address(tokenA));
+
+        // Now execution should succeed again
+        vm.prank(address(vault1));
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        success = executor.executeFlow(flowId3);
+        assertTrue(success);
+    }
+
+    function test_DifferentTokensHaveSeparateCaps() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+
+        // Swap tokenA
+        bytes memory actionDataA = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionDataA);
+
+        executor.executeFlow(flowId);
+
+        // TokenA cap reduced, tokenB cap unchanged
+        assertEq(vault1.getRemainingSpendingCap(address(tokenA)), SPENDING_CAP - SWAP_AMOUNT);
+        assertEq(vault1.getRemainingSpendingCap(address(tokenB)), SPENDING_CAP);
+    }
+
+    function test_SpendingCapEdgeCase_ExactCapAmount() public {
+        // Set cap exactly equal to swap amount
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), SWAP_AMOUNT);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should succeed - exact cap
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Cap should now be 0
+        assertEq(vault1.getRemainingSpendingCap(address(tokenA)), 0);
+    }
+}
