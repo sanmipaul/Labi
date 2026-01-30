@@ -1711,3 +1711,175 @@ contract MultipleFlowsPerUserTest is IntegrationTestBase {
         assertEq(vault1.getRemainingSpendingCap(address(tokenA)), 50e18);
     }
 }
+
+/**
+ * @title TriggerIntegrationTest
+ * @notice Tests for trigger-specific integration scenarios
+ */
+contract TriggerIntegrationTest is IntegrationTestBase {
+
+    function test_TimeTrigger_DayOfWeekMatching() public {
+        uint256 currentDay = _getCurrentDayOfWeek();
+        uint256 currentTime = _getCurrentTimeOfDay();
+
+        bytes memory triggerData = _createTimeTriggerData(currentDay, currentTime, 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should execute successfully
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_TimeTrigger_WrongDayBlocks() public {
+        uint256 currentDay = _getCurrentDayOfWeek();
+        uint256 wrongDay = (currentDay + 1) % 7;
+        uint256 currentTime = _getCurrentTimeOfDay();
+
+        bytes memory triggerData = _createTimeTriggerData(wrongDay, currentTime, 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail - wrong day
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_PriceTrigger_AboveTarget() public {
+        // Set price above target
+        priceFeed.setPrice(150e18);
+
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_PriceTrigger_BelowTarget() public {
+        // Set price below target
+        priceFeed.setPrice(50e18);
+
+        // Trigger when price <= 100
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, false);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_PriceTrigger_PriceChangeMidSession() public {
+        // Start with price below target
+        priceFeed.setPrice(50e18);
+
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        // First execution fails - price too low
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+
+        // Price increases
+        priceFeed.setPrice(150e18);
+
+        // Now execution succeeds
+        success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_PriceTrigger_ExactTargetPrice() public {
+        // Set price exactly at target
+        priceFeed.setPrice(100e18);
+
+        // isAbove=true means >= target
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_MixedTriggerTypes() public {
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            50e18,
+            49e18,
+            block.timestamp + 1 hours
+        );
+
+        // Create time-triggered flow
+        bytes memory timeTriggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        vm.prank(address(vault1));
+        uint256 timeFlowId = registry.createFlow(1, 0, timeTriggerData, conditionData, actionData);
+
+        // Create price-triggered flow
+        priceFeed.setPrice(150e18);
+        bytes memory priceTriggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        vm.prank(address(vault1));
+        uint256 priceFlowId = registry.createFlow(2, 100e18, priceTriggerData, conditionData, actionData);
+
+        // Both should execute successfully
+        assertTrue(executor.executeFlow(timeFlowId));
+        assertTrue(executor.executeFlow(priceFlowId));
+    }
+}
