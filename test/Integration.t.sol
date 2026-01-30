@@ -790,3 +790,129 @@ contract PausedVaultTest is IntegrationTestBase {
         assertFalse(success);
     }
 }
+
+/**
+ * @title ExpiredDeadlineTest
+ * @notice Tests for expired deadline edge cases
+ */
+contract ExpiredDeadlineTest is IntegrationTestBase {
+
+    function test_CannotExecuteWithExpiredDeadline() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+
+        // Set deadline in the past
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp - 1 // Already expired
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail due to expired deadline
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_DeadlineExpiresAfterFlowCreation() public {
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            deadline
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Warp time past deadline
+        vm.warp(deadline + 1);
+
+        // Execution should fail due to expired deadline
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ExecutionSucceedsBeforeDeadline() public {
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            deadline
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Warp time but stay before deadline
+        vm.warp(deadline - 1);
+
+        // Update trigger data for new time
+        uint256 newDayOfWeek = (block.timestamp / 1 days) % 7;
+        uint256 newTimeOfDay = block.timestamp % 1 days;
+
+        // Create new flow with updated time
+        bytes memory newTriggerData = _createTimeTriggerData(newDayOfWeek, newTimeOfDay, 0);
+        vm.prank(address(vault1));
+        uint256 newFlowId = registry.createFlow(1, 0, newTriggerData, conditionData, actionData);
+
+        // Execution should succeed
+        bool success = executor.executeFlow(newFlowId);
+        assertTrue(success);
+    }
+
+    function test_DeadlineExactlyAtBlockTimestamp() public {
+        // Deadline equal to block.timestamp should fail (requires > not >=)
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp // Exactly at current time
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail because deadline must be > block.timestamp
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_LongDeadlineStillWorks() public {
+        // Test with a very long deadline (1 year)
+        uint256 deadline = block.timestamp + 365 days;
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            deadline
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+}
