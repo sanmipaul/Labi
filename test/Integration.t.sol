@@ -481,3 +481,170 @@ contract FlowLifecycleTest is IntegrationTestBase {
         assertTrue(success);
     }
 }
+
+/**
+ * @title MultiUserScenarioTest
+ * @notice Tests for multi-user scenarios and flow isolation
+ */
+contract MultiUserScenarioTest is IntegrationTestBase {
+
+    function test_MultipleUsersCreateIndependentFlows() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // User 1 creates flow
+        vm.prank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // User 2 creates flow
+        vm.prank(address(vault2));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // User 3 creates flow
+        vm.prank(address(vault3));
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Verify each user has their own flow
+        assertEq(registry.getFlow(flowId1).user, address(vault1));
+        assertEq(registry.getFlow(flowId2).user, address(vault2));
+        assertEq(registry.getFlow(flowId3).user, address(vault3));
+
+        // Verify flow IDs are sequential
+        assertEq(flowId1, 1);
+        assertEq(flowId2, 2);
+        assertEq(flowId3, 3);
+    }
+
+    function test_UserFlowsAreSeparate() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // User 1 creates 2 flows
+        vm.startPrank(address(vault1));
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        vm.stopPrank();
+
+        // User 2 creates 1 flow
+        vm.prank(address(vault2));
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Verify user flows
+        uint256[] memory user1Flows = registry.getUserFlows(address(vault1));
+        uint256[] memory user2Flows = registry.getUserFlows(address(vault2));
+
+        assertEq(user1Flows.length, 2);
+        assertEq(user2Flows.length, 1);
+    }
+
+    function test_OneUserExecutionDoesNotAffectAnother() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // Both users create flows
+        vm.prank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault2));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Record initial balances
+        uint256 vault1BalanceBefore = tokenA.balanceOf(address(vault1));
+        uint256 vault2BalanceBefore = tokenA.balanceOf(address(vault2));
+
+        // Execute only user 1's flow
+        executor.executeFlow(flowId1);
+
+        // Verify only user 1's balance changed
+        assertEq(tokenA.balanceOf(address(vault1)), vault1BalanceBefore - SWAP_AMOUNT);
+        assertEq(tokenA.balanceOf(address(vault2)), vault2BalanceBefore);
+
+        // Verify only user 1's flow execution count updated
+        assertEq(registry.getFlow(flowId1).executionCount, 1);
+        assertEq(registry.getFlow(flowId2).executionCount, 0);
+    }
+
+    function test_MultipleUsersCanExecuteSimultaneously() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // All users create flows
+        vm.prank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault2));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault3));
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execute all flows
+        bool success1 = executor.executeFlow(flowId1);
+        bool success2 = executor.executeFlow(flowId2);
+        bool success3 = executor.executeFlow(flowId3);
+
+        assertTrue(success1);
+        assertTrue(success2);
+        assertTrue(success3);
+
+        // Verify all executions recorded
+        assertEq(registry.getFlow(flowId1).executionCount, 1);
+        assertEq(registry.getFlow(flowId2).executionCount, 1);
+        assertEq(registry.getFlow(flowId3).executionCount, 1);
+    }
+
+    function test_OnlyFlowOwnerCanUpdateStatus() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // User 1 creates flow
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // User 2 tries to update user 1's flow - should fail
+        vm.prank(address(vault2));
+        vm.expectRevert("Only flow owner can update");
+        registry.updateFlowStatus(flowId, false);
+
+        // User 1 can update their own flow
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+
+        assertFalse(registry.getFlow(flowId).active);
+    }
+}
