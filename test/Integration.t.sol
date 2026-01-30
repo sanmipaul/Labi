@@ -2224,3 +2224,253 @@ contract EdgeCaseTest is IntegrationTestBase {
         assertFalse(success);
     }
 }
+
+/**
+ * @title ComprehensiveLifecycleTest
+ * @notice End-to-end tests covering the complete flow lifecycle
+ */
+contract ComprehensiveLifecycleTest is IntegrationTestBase {
+
+    function test_FullLifecycle_CreateTriggerConditionExecuteRecord() public {
+        // Step 1: Setup - price trigger above $100
+        priceFeed.setPrice(150e18);
+
+        // Step 2: Create flow with all components
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(5000e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        // Step 3: Verify creation
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.id, flowId);
+        assertEq(flow.user, address(vault1));
+        assertTrue(flow.active);
+        assertEq(flow.executionCount, 0);
+
+        // Step 4: Check execution eligibility
+        (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
+        assertTrue(canExecute);
+        assertEq(reason, "Ready for execution");
+
+        // Step 5: Execute
+        uint256 balanceBefore = tokenA.balanceOf(address(vault1));
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Step 6: Verify execution results
+        uint256 balanceAfter = tokenA.balanceOf(address(vault1));
+        assertEq(balanceBefore - balanceAfter, SWAP_AMOUNT);
+
+        // Step 7: Verify recording
+        flow = registry.getFlow(flowId);
+        assertEq(flow.executionCount, 1);
+        assertGt(flow.lastExecutedAt, 0);
+
+        // Step 8: Verify spending tracked
+        uint256 remaining = vault1.getRemainingSpendingCap(address(tokenA));
+        assertEq(remaining, SPENDING_CAP - SWAP_AMOUNT);
+    }
+
+    function test_FullLifecycle_WithRateLimiting() public {
+        // Setup rate limiter
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            10e18,
+            9e18,
+            block.timestamp + 1 days
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // First execution - should be allowed by rate limiter
+        assertTrue(rateLimiter.canExecute(address(vault1), flowId));
+        executor.executeFlow(flowId);
+        rateLimiter.recordExecution(address(vault1), flowId);
+
+        // Immediate re-execution blocked by rate limiter
+        assertFalse(rateLimiter.canExecute(address(vault1), flowId));
+
+        // Warp 12 hours (half day for 2/day limit)
+        vm.warp(block.timestamp + 12 hours);
+
+        // Now rate limiter allows
+        assertTrue(rateLimiter.canExecute(address(vault1), flowId));
+    }
+
+    function test_FullLifecycle_VaultPauseUnpause() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execute once
+        assertTrue(executor.executeFlow(flowId));
+        assertEq(registry.getFlow(flowId).executionCount, 1);
+
+        // Pause vault
+        vm.prank(user1);
+        vault1.pause();
+
+        // Create new flow for same time
+        vm.prank(address(vault1));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution blocked
+        assertFalse(executor.executeFlow(flowId2));
+        assertEq(registry.getFlow(flowId2).executionCount, 0);
+
+        // Unpause
+        vm.prank(user1);
+        vault1.unpause();
+
+        // Now execution works
+        assertTrue(executor.executeFlow(flowId2));
+        assertEq(registry.getFlow(flowId2).executionCount, 1);
+    }
+
+    function test_FullLifecycle_SpendingCapExhaustion() public {
+        // Set limited spending cap
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), 250e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18,
+            block.timestamp + 1 hours
+        );
+
+        // Create 3 flows
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        vm.stopPrank();
+
+        // Execute first two (200e18 total)
+        assertTrue(executor.executeFlow(flowId1));
+        assertTrue(executor.executeFlow(flowId2));
+
+        // Third fails (would exceed 250e18 cap)
+        assertFalse(executor.executeFlow(flowId3));
+
+        // Reset cap
+        vm.prank(user1);
+        vault1.resetSpendingTracker(address(tokenA));
+
+        // Now third succeeds
+        assertTrue(executor.executeFlow(flowId3));
+    }
+
+    function test_FullLifecycle_MultiUserParallel() public {
+        // Setup price feed
+        priceFeed.setPrice(150e18);
+
+        // Create flows for all users
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId1 = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault2));
+        uint256 flowId2 = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault3));
+        uint256 flowId3 = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        // Record initial balances
+        uint256 balance1Before = tokenA.balanceOf(address(vault1));
+        uint256 balance2Before = tokenA.balanceOf(address(vault2));
+        uint256 balance3Before = tokenA.balanceOf(address(vault3));
+
+        // Execute all
+        assertTrue(executor.executeFlow(flowId1));
+        assertTrue(executor.executeFlow(flowId2));
+        assertTrue(executor.executeFlow(flowId3));
+
+        // Verify all balances changed independently
+        assertEq(tokenA.balanceOf(address(vault1)), balance1Before - SWAP_AMOUNT);
+        assertEq(tokenA.balanceOf(address(vault2)), balance2Before - SWAP_AMOUNT);
+        assertEq(tokenA.balanceOf(address(vault3)), balance3Before - SWAP_AMOUNT);
+
+        // Verify all executions recorded
+        assertEq(registry.getFlow(flowId1).executionCount, 1);
+        assertEq(registry.getFlow(flowId2).executionCount, 1);
+        assertEq(registry.getFlow(flowId3).executionCount, 1);
+    }
+
+    function test_FullLifecycle_FlowDeactivationReactivation() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execute once
+        assertTrue(executor.executeFlow(flowId));
+        assertEq(registry.getFlow(flowId).executionCount, 1);
+
+        // Deactivate
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+
+        // Create similar flow
+        vm.prank(address(vault1));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Original flow blocked
+        vm.expectRevert("Flow is not active");
+        executor.executeFlow(flowId);
+
+        // New flow works
+        assertTrue(executor.executeFlow(flowId2));
+
+        // Reactivate original
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, true);
+
+        // Original preserved execution count
+        assertEq(registry.getFlow(flowId).executionCount, 1);
+    }
+}
