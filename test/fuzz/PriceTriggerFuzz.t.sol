@@ -149,4 +149,59 @@ contract PriceTriggerFuzzTest is Test {
     function testFuzz_TriggerTypeConstant() public {
         assertEq(priceTrigger.triggerType(), 2);
     }
+
+    /**
+     * @notice Fuzz test: Price volatility simulation
+     * @param prices Array of prices to simulate
+     * @param targetPrice Target threshold
+     */
+    function testFuzz_PriceVolatility(int256[5] memory prices, uint256 targetPrice) public {
+        targetPrice = bound(targetPrice, 1, type(uint128).max);
+
+        for (uint256 i = 0; i < 5; i++) {
+            prices[i] = int256(bound(uint256(prices[i] > 0 ? prices[i] : -prices[i]), 1, type(uint128).max));
+
+            priceFeed.setPrice(prices[i]);
+
+            bytes memory triggerData = abi.encode(address(priceFeed), targetPrice, true);
+            bool result = priceTrigger.isMet(1, triggerData);
+
+            // Verify result matches expectation
+            if (uint256(prices[i]) >= targetPrice) {
+                assertTrue(result);
+            } else {
+                assertFalse(result);
+            }
+        }
+    }
+
+    /**
+     * @notice Fuzz test: Large price values
+     * @param price Large price value
+     */
+    function testFuzz_LargePriceValues(uint256 price) public {
+        price = bound(price, type(uint128).max / 2, type(uint128).max);
+
+        priceFeed.setPrice(int256(price));
+
+        bytes memory triggerData = abi.encode(address(priceFeed), price, true);
+
+        // Should handle large values without overflow
+        assertTrue(priceTrigger.isMet(1, triggerData));
+    }
+
+    /**
+     * @notice Fuzz test: Small price values
+     * @param price Small price value
+     */
+    function testFuzz_SmallPriceValues(uint256 price) public {
+        price = bound(price, 1, 1000);
+
+        priceFeed.setPrice(int256(price));
+
+        bytes memory triggerData = abi.encode(address(priceFeed), price, true);
+
+        // Should handle small values correctly
+        assertTrue(priceTrigger.isMet(1, triggerData));
+    }
 }
