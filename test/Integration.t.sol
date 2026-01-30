@@ -2039,3 +2039,188 @@ contract ConditionEvaluationTest is IntegrationTestBase {
         assertTrue(success);
     }
 }
+
+/**
+ * @title EdgeCaseTest
+ * @notice Tests for various edge cases and boundary conditions
+ */
+contract EdgeCaseTest is IntegrationTestBase {
+
+    function test_NonExistentFlowReverts() public {
+        vm.expectRevert("Flow does not exist");
+        registry.getFlow(999);
+    }
+
+    function test_InvalidTriggerTypeReverts() public {
+        bytes memory triggerData = _createTimeTriggerData(0, 0, 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        vm.expectRevert("Invalid trigger type");
+        registry.createFlow(0, 0, triggerData, conditionData, actionData);
+    }
+
+    function test_InvalidTriggerTypeAboveRange() public {
+        bytes memory triggerData = _createTimeTriggerData(0, 0, 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        vm.expectRevert("Invalid trigger type");
+        registry.createFlow(3, 0, triggerData, conditionData, actionData);
+    }
+
+    function test_FlowCounterIncrementsCorrectly() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        assertEq(registry.getFlowCounter(), 0);
+
+        vm.prank(address(vault1));
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        assertEq(registry.getFlowCounter(), 1);
+
+        vm.prank(address(vault2));
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        assertEq(registry.getFlowCounter(), 2);
+
+        vm.prank(address(vault3));
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        assertEq(registry.getFlowCounter(), 3);
+    }
+
+    function test_QueryZeroAddressUserFlows() public {
+        vm.expectRevert("IntentRegistry: user address is zero");
+        registry.getUserFlows(address(0));
+    }
+
+    function test_SlippageProtection() public {
+        // Set high slippage in mock router
+        uniswapRouter.setSwapRate(0.5e18); // 50% rate (high slippage)
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        // Require minimum output that won't be met
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18, // Minimum 99, but will only get 50
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail due to slippage
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_LargeSwapAmount() public {
+        // Set large spending cap
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), type(uint128).max);
+
+        // Mint more tokens
+        tokenA.mint(address(vault1), type(uint128).max);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            1000000e18, // Large amount
+            999999e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_FlowDataIntegrity() public {
+        bytes memory triggerData = _createTimeTriggerData(3, 43200, 12345);
+        bytes memory conditionData = _createConditionData(500e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            200e18,
+            190e18,
+            block.timestamp + 2 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 100e18, triggerData, conditionData, actionData);
+
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+
+        // Verify all data stored correctly
+        assertEq(flow.id, flowId);
+        assertEq(flow.user, address(vault1));
+        assertEq(flow.triggerType, 1);
+        assertEq(flow.triggerValue, 100e18);
+        assertEq(keccak256(flow.triggerData), keccak256(triggerData));
+        assertEq(keccak256(flow.conditionData), keccak256(conditionData));
+        assertEq(keccak256(flow.actionData), keccak256(actionData));
+        assertTrue(flow.active);
+        assertEq(flow.lastExecutedAt, 0);
+        assertEq(flow.executionCount, 0);
+    }
+
+    function test_ProtocolApprovalRequired() public {
+        // Create new vault without protocol approval
+        vm.prank(user1);
+        IntentVault newVault = new IntentVault();
+
+        _fundVault(address(newVault), INITIAL_BALANCE);
+
+        vm.startPrank(user1);
+        newVault.setSpendingCap(address(tokenA), SPENDING_CAP);
+        // NOT approving executor as protocol
+        vm.stopPrank();
+
+        vm.prank(address(newVault));
+        tokenA.approve(address(swapAction), type(uint256).max);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(newVault));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail - protocol not approved
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+}
