@@ -1531,3 +1531,183 @@ contract FlowStatusUpdateTest is IntegrationTestBase {
         assertFalse(flow.active);
     }
 }
+
+/**
+ * @title MultipleFlowsPerUserTest
+ * @notice Tests for users with multiple flows
+ */
+contract MultipleFlowsPerUserTest is IntegrationTestBase {
+
+    function test_UserCanCreateMultipleFlows() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            10e18,
+            9e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.startPrank(address(vault1));
+
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId4 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId5 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.stopPrank();
+
+        // Verify all flows created
+        uint256[] memory userFlows = registry.getUserFlows(address(vault1));
+        assertEq(userFlows.length, 5);
+
+        // Verify flow IDs
+        assertEq(userFlows[0], flowId1);
+        assertEq(userFlows[1], flowId2);
+        assertEq(userFlows[2], flowId3);
+        assertEq(userFlows[3], flowId4);
+        assertEq(userFlows[4], flowId5);
+    }
+
+    function test_ExecuteOnlyEligibleFlows() public {
+        // Create flows with different triggers
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            10e18,
+            9e18,
+            block.timestamp + 1 hours
+        );
+
+        // Flow 1: Time trigger (will be met)
+        bytes memory triggerData1 = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+
+        // Flow 2: Price trigger below current price (will NOT be met)
+        priceFeed.setPrice(100e18);
+        bytes memory triggerData2 = _createPriceTriggerData(address(priceFeed), 150e18, true);
+
+        // Flow 3: Price trigger above current price (will be met)
+        bytes memory triggerData3 = _createPriceTriggerData(address(priceFeed), 50e18, true);
+
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData1, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(2, 150e18, triggerData2, conditionData, actionData);
+        uint256 flowId3 = registry.createFlow(2, 50e18, triggerData3, conditionData, actionData);
+        vm.stopPrank();
+
+        // Execute all flows
+        bool success1 = executor.executeFlow(flowId1);
+        bool success2 = executor.executeFlow(flowId2);
+        bool success3 = executor.executeFlow(flowId3);
+
+        // Only flows 1 and 3 should succeed
+        assertTrue(success1);
+        assertFalse(success2);
+        assertTrue(success3);
+
+        // Verify execution counts
+        assertEq(registry.getFlow(flowId1).executionCount, 1);
+        assertEq(registry.getFlow(flowId2).executionCount, 0);
+        assertEq(registry.getFlow(flowId3).executionCount, 1);
+    }
+
+    function test_MixedActiveInactiveFlows() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            10e18,
+            9e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Deactivate flow 2
+        registry.updateFlowStatus(flowId2, false);
+        vm.stopPrank();
+
+        // Execute flows
+        bool success1 = executor.executeFlow(flowId1);
+        vm.expectRevert("Flow is not active");
+        executor.executeFlow(flowId2);
+        bool success3 = executor.executeFlow(flowId3);
+
+        assertTrue(success1);
+        assertTrue(success3);
+    }
+
+    function test_FlowsWithDifferentConditions() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            10e18,
+            9e18,
+            block.timestamp + 1 hours
+        );
+
+        // Flow 1: No condition
+        bytes memory conditionData1 = _createConditionData(0, address(0));
+
+        // Flow 2: Requires 50 tokens (will be met)
+        bytes memory conditionData2 = _createConditionData(50e18, address(tokenA));
+
+        // Flow 3: Requires more tokens than available
+        bytes memory conditionData3 = _createConditionData(INITIAL_BALANCE + 1, address(tokenA));
+
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData1, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData2, actionData);
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData3, actionData);
+        vm.stopPrank();
+
+        // Execute
+        bool success1 = executor.executeFlow(flowId1);
+        bool success2 = executor.executeFlow(flowId2);
+        bool success3 = executor.executeFlow(flowId3);
+
+        assertTrue(success1);
+        assertTrue(success2);
+        assertFalse(success3);
+    }
+
+    function test_CumulativeSpendingAcrossFlows() public {
+        // Set lower cap to test cumulative spending
+        vm.prank(user1);
+        vault1.setSpendingCap(address(tokenA), 250e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18,
+            99e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.startPrank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        uint256 flowId3 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+        vm.stopPrank();
+
+        // First two should succeed (200e18 total)
+        assertTrue(executor.executeFlow(flowId1));
+        assertTrue(executor.executeFlow(flowId2));
+
+        // Third should fail (would exceed 250e18 cap)
+        assertFalse(executor.executeFlow(flowId3));
+
+        // Verify remaining cap
+        assertEq(vault1.getRemainingSpendingCap(address(tokenA)), 50e18);
+    }
+}
