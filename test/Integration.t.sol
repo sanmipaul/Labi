@@ -1883,3 +1883,159 @@ contract TriggerIntegrationTest is IntegrationTestBase {
         assertTrue(executor.executeFlow(priceFlowId));
     }
 }
+
+/**
+ * @title ConditionEvaluationTest
+ * @notice Tests for condition evaluation during flow execution
+ */
+contract ConditionEvaluationTest is IntegrationTestBase {
+
+    function test_ETHBalanceCondition() public {
+        // Give vault some ETH
+        vm.deal(address(vault1), 100 ether);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires 50 ETH (address(0) means ETH)
+        bytes memory conditionData = _createConditionData(50 ether, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should succeed - vault has 100 ETH, needs 50
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_ETHBalanceConditionFails() public {
+        // Give vault insufficient ETH
+        vm.deal(address(vault1), 10 ether);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires 50 ETH
+        bytes memory conditionData = _createConditionData(50 ether, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail - insufficient ETH
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ERC20BalanceCondition() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires 5000 tokenA
+        bytes memory conditionData = _createConditionData(5000e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should succeed - vault has 10000e18, needs 5000e18
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_ERC20BalanceConditionFails() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires more than available
+        bytes memory conditionData = _createConditionData(INITIAL_BALANCE + 1, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ZeroBalanceConditionAlwaysPasses() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: 0 balance required (always passes)
+        bytes memory conditionData = _createConditionData(0, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_ConditionWithDifferentToken() public {
+        // Deploy a third token
+        MockERC20 tokenC = new MockERC20("Token C", "TKNC");
+        tokenC.mint(address(vault1), 1000e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires tokenC balance
+        bytes memory conditionData = _createConditionData(500e18, address(tokenC));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should succeed - has 1000 tokenC, needs 500
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_ConditionExactBalance() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Condition: requires exactly what we have
+        bytes memory conditionData = _createConditionData(INITIAL_BALANCE, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Should succeed - exact balance match
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+}
