@@ -1268,3 +1268,128 @@ contract SpendingCapIntegrationTest is IntegrationTestBase {
         assertEq(vault1.getRemainingSpendingCap(address(tokenA)), 0);
     }
 }
+
+/**
+ * @title RateLimiterIntegrationTest
+ * @notice Tests for rate limiting during flow execution
+ */
+contract RateLimiterIntegrationTest is IntegrationTestBase {
+
+    function test_RateLimiterTracksExecutions() public {
+        // Set execution limit
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        // Record execution
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Verify last execution time
+        assertEq(rateLimiter.getLastExecutionTime(address(vault1), 1), block.timestamp);
+    }
+
+    function test_RateLimiterBlocksRapidExecution() public {
+        // Set execution limit to 2 per day (12 hour intervals)
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        // First execution allowed
+        assertTrue(rateLimiter.canExecute(address(vault1), 1));
+
+        // Record first execution
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Immediate second execution blocked
+        assertFalse(rateLimiter.canExecute(address(vault1), 1));
+    }
+
+    function test_RateLimiterAllowsAfterInterval() public {
+        // Set execution limit to 2 per day (12 hour intervals)
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        // Record execution
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Warp 12 hours + 1 second
+        vm.warp(block.timestamp + 12 hours + 1);
+
+        // Should be allowed now
+        assertTrue(rateLimiter.canExecute(address(vault1), 1));
+    }
+
+    function test_RateLimiterDifferentFlowsIndependent() public {
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        // Record execution for flow 1
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Flow 1 blocked
+        assertFalse(rateLimiter.canExecute(address(vault1), 1));
+
+        // Flow 2 still allowed
+        assertTrue(rateLimiter.canExecute(address(vault1), 2));
+    }
+
+    function test_RateLimiterDifferentVaultsIndependent() public {
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+        rateLimiter.setExecutionLimitPerDay(address(vault2), 2);
+
+        // Record execution for vault1
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Vault1 flow 1 blocked
+        assertFalse(rateLimiter.canExecute(address(vault1), 1));
+
+        // Vault2 flow 1 still allowed
+        assertTrue(rateLimiter.canExecute(address(vault2), 1));
+    }
+
+    function test_RateLimiterMinimumInterval() public {
+        // Set 4 executions per day
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 4);
+
+        // Minimum interval should be 6 hours
+        assertEq(rateLimiter.getMinimumInterval(address(vault1)), 6 hours);
+    }
+
+    function test_RateLimiterHighFrequencyLimit() public {
+        // Set 24 executions per day (1 per hour)
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 24);
+
+        // Minimum interval should be 1 hour
+        assertEq(rateLimiter.getMinimumInterval(address(vault1)), 1 hours);
+
+        // Record execution
+        rateLimiter.recordExecution(address(vault1), 1);
+
+        // Blocked immediately
+        assertFalse(rateLimiter.canExecute(address(vault1), 1));
+
+        // Warp 1 hour
+        vm.warp(block.timestamp + 1 hours);
+
+        // Now allowed
+        assertTrue(rateLimiter.canExecute(address(vault1), 1));
+    }
+
+    function test_RateLimiterFirstExecutionAlwaysAllowed() public {
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 1);
+
+        // First execution always allowed (lastExecution == 0)
+        assertTrue(rateLimiter.canExecute(address(vault1), 1));
+    }
+
+    function test_RateLimiterMultipleFlowsConcurrent() public {
+        rateLimiter.setExecutionLimitPerDay(address(vault1), 2);
+
+        // Execute multiple different flows
+        rateLimiter.recordExecution(address(vault1), 1);
+        rateLimiter.recordExecution(address(vault1), 2);
+        rateLimiter.recordExecution(address(vault1), 3);
+
+        // All should be blocked for rapid re-execution
+        assertFalse(rateLimiter.canExecute(address(vault1), 1));
+        assertFalse(rateLimiter.canExecute(address(vault1), 2));
+        assertFalse(rateLimiter.canExecute(address(vault1), 3));
+
+        // But a new flow is still allowed
+        assertTrue(rateLimiter.canExecute(address(vault1), 4));
+    }
+}
