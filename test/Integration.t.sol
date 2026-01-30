@@ -916,3 +916,188 @@ contract ExpiredDeadlineTest is IntegrationTestBase {
         assertTrue(success);
     }
 }
+
+/**
+ * @title FailedExecutionHandlingTest
+ * @notice Tests for various failure scenarios and error handling
+ */
+contract FailedExecutionHandlingTest is IntegrationTestBase {
+
+    function test_ExecutionFailsWithInactiveFlow() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Deactivate flow
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+
+        // Execution should revert
+        vm.expectRevert("Flow is not active");
+        executor.executeFlow(flowId);
+    }
+
+    function test_ExecutionFailsWhenTriggerNotMet() public {
+        // Set price below target
+        priceFeed.setPrice(50e18);
+
+        // Create flow with price trigger (execute when price >= 100)
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+
+        // No execution recorded
+        assertEq(registry.getFlow(flowId).executionCount, 0);
+    }
+
+    function test_ExecutionFailsWhenConditionNotMet() public {
+        // Burn tokens to fail condition check
+        tokenA.burn(address(vault1), INITIAL_BALANCE - 10e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        // Require 100 tokens but vault only has 10
+        bytes memory conditionData = _createConditionData(100e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail due to condition
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ExecutionFailsWithInsufficientBalance() public {
+        // Burn most tokens
+        tokenA.burn(address(vault1), INITIAL_BALANCE - 10e18);
+
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        // Try to swap more than available
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            100e18, // More than the 10e18 available
+            90e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ExecutionFailsWithInvalidTokens() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        // Use zero address for token
+        bytes memory actionData = _createSwapActionData(
+            address(0), // Invalid token
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ExecutionFailsWithZeroAmount() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            0, // Zero amount
+            0,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_ExecutionFailsWithNoActionData() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = ""; // Empty action data
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+
+    function test_FailedExecutionDoesNotUpdateState() public {
+        // Set price below target to cause trigger failure
+        priceFeed.setPrice(50e18);
+
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        uint256 balanceBefore = tokenA.balanceOf(address(vault1));
+
+        // Execution fails
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+
+        // Balance unchanged
+        assertEq(tokenA.balanceOf(address(vault1)), balanceBefore);
+
+        // Execution count unchanged
+        assertEq(registry.getFlow(flowId).executionCount, 0);
+        assertEq(registry.getFlow(flowId).lastExecutedAt, 0);
+    }
+}
