@@ -345,3 +345,139 @@ contract IntegrationTestBase is Test {
         return abi.encode(tokenIn, tokenOut, amountIn, amountOutMin, deadline);
     }
 }
+
+/**
+ * @title FlowLifecycleTest
+ * @notice Tests for complete flow lifecycle: creation → trigger → condition → execution
+ */
+contract FlowLifecycleTest is IntegrationTestBase {
+
+    function test_CompleteFlowLifecycle_TimeTrigger() public {
+        // Step 1: Create flow with time trigger
+        uint256 dayOfWeek = _getCurrentDayOfWeek();
+        uint256 timeOfDay = _getCurrentTimeOfDay();
+
+        bytes memory triggerData = _createTimeTriggerData(dayOfWeek, timeOfDay, 0);
+        bytes memory conditionData = _createConditionData(50e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18, // Allow 1% slippage
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Step 2: Verify flow was created
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.user, address(vault1));
+        assertEq(flow.triggerType, 1);
+        assertTrue(flow.active);
+        assertEq(flow.executionCount, 0);
+
+        // Step 3: Check flow can be executed
+        (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
+        assertTrue(canExecute, reason);
+
+        // Step 4: Execute the flow
+        uint256 balanceBefore = tokenA.balanceOf(address(vault1));
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Step 5: Verify execution results
+        uint256 balanceAfter = tokenA.balanceOf(address(vault1));
+        assertEq(balanceBefore - balanceAfter, SWAP_AMOUNT);
+
+        // Step 6: Verify execution was recorded
+        flow = registry.getFlow(flowId);
+        assertEq(flow.executionCount, 1);
+        assertGt(flow.lastExecutedAt, 0);
+    }
+
+    function test_CompleteFlowLifecycle_PriceTrigger() public {
+        // Step 1: Set price above target
+        priceFeed.setPrice(150e18);
+
+        // Step 2: Create flow with price trigger (execute when price >= 100)
+        bytes memory triggerData = _createPriceTriggerData(address(priceFeed), 100e18, true);
+        bytes memory conditionData = _createConditionData(50e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(2, 100e18, triggerData, conditionData, actionData);
+
+        // Step 3: Execute flow
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Step 4: Verify execution recorded
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.executionCount, 1);
+    }
+
+    function test_FlowCreationEmitsEvent() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        vm.expectEmit(true, true, false, true);
+        emit IIntentRegistry.FlowCreated(1, address(vault1), 1, 0);
+        registry.createFlow(1, 0, triggerData, conditionData, actionData);
+    }
+
+    function test_FlowExecutionUpdatesState() public {
+        // Create and execute flow
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Execute multiple times (need to warp time for time trigger)
+        executor.executeFlow(flowId);
+
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.executionCount, 1);
+        assertEq(flow.lastExecutedAt, block.timestamp);
+    }
+
+    function test_FlowWithNoConditionData() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = ""; // Empty condition
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+}
