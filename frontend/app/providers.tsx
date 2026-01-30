@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { config } from '../lib/config';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 const queryClient = new QueryClient();
 
@@ -16,7 +17,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme()}>
-          {children}
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
