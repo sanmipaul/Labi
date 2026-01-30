@@ -648,3 +648,145 @@ contract MultiUserScenarioTest is IntegrationTestBase {
         assertFalse(registry.getFlow(flowId).active);
     }
 }
+
+/**
+ * @title PausedVaultTest
+ * @notice Tests for paused vault edge cases
+ */
+contract PausedVaultTest is IntegrationTestBase {
+
+    function test_CannotExecuteFlowWhenVaultPaused() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Pause the vault
+        vm.prank(user1);
+        vault1.pause();
+
+        // Execution should fail
+        bool success = executor.executeFlow(flowId);
+        assertFalse(success);
+
+        // Verify no execution was recorded
+        assertEq(registry.getFlow(flowId).executionCount, 0);
+    }
+
+    function test_CanExecuteAfterVaultUnpaused() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Pause and then unpause the vault
+        vm.startPrank(user1);
+        vault1.pause();
+        vault1.unpause();
+        vm.stopPrank();
+
+        // Execution should succeed
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_CanExecuteCheckReturnsPausedStatus() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Pause the vault
+        vm.prank(user1);
+        vault1.pause();
+
+        // Check should return paused status
+        (bool canExecute, string memory reason) = executor.canExecuteFlow(flowId);
+        assertFalse(canExecute);
+        assertEq(reason, "Vault is paused");
+    }
+
+    function test_PausedVaultDoesNotAffectOtherVaults() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        // Both users create flows
+        vm.prank(address(vault1));
+        uint256 flowId1 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault2));
+        uint256 flowId2 = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Pause only vault1
+        vm.prank(user1);
+        vault1.pause();
+
+        // Vault1's flow should fail
+        bool success1 = executor.executeFlow(flowId1);
+        assertFalse(success1);
+
+        // Vault2's flow should succeed
+        bool success2 = executor.executeFlow(flowId2);
+        assertTrue(success2);
+    }
+
+    function test_VaultPauseDuringExecution() public {
+        // This test verifies that if a vault is paused mid-transaction,
+        // the action will fail with the appropriate error
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // First execution should succeed
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+
+        // Pause vault
+        vm.prank(user1);
+        vault1.pause();
+
+        // Second execution should fail
+        success = executor.executeFlow(flowId);
+        assertFalse(success);
+    }
+}
