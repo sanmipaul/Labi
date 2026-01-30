@@ -1393,3 +1393,141 @@ contract RateLimiterIntegrationTest is IntegrationTestBase {
         assertTrue(rateLimiter.canExecute(address(vault1), 4));
     }
 }
+
+/**
+ * @title FlowStatusUpdateTest
+ * @notice Tests for flow activation/deactivation scenarios
+ */
+contract FlowStatusUpdateTest is IntegrationTestBase {
+
+    function test_DeactivateFlowPreventsExecution() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Deactivate flow
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+
+        // Verify flow is inactive
+        assertFalse(registry.getFlow(flowId).active);
+
+        // Execution should fail
+        vm.expectRevert("Flow is not active");
+        executor.executeFlow(flowId);
+    }
+
+    function test_ReactivateFlowAllowsExecution() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Deactivate and then reactivate
+        vm.startPrank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+        registry.updateFlowStatus(flowId, true);
+        vm.stopPrank();
+
+        // Execution should succeed
+        bool success = executor.executeFlow(flowId);
+        assertTrue(success);
+    }
+
+    function test_FlowStatusToggle() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        // Toggle multiple times
+        vm.startPrank(address(vault1));
+
+        registry.updateFlowStatus(flowId, false);
+        assertFalse(registry.getFlow(flowId).active);
+
+        registry.updateFlowStatus(flowId, true);
+        assertTrue(registry.getFlow(flowId).active);
+
+        registry.updateFlowStatus(flowId, false);
+        assertFalse(registry.getFlow(flowId).active);
+
+        vm.stopPrank();
+    }
+
+    function test_StatusUpdateEmitsEvent() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(0, address(0));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 0, triggerData, conditionData, actionData);
+
+        vm.prank(address(vault1));
+        vm.expectEmit(true, false, false, true);
+        emit IIntentRegistry.FlowStatusUpdated(flowId, false);
+        registry.updateFlowStatus(flowId, false);
+    }
+
+    function test_DeactivatedFlowMaintainsData() public {
+        bytes memory triggerData = _createTimeTriggerData(_getCurrentDayOfWeek(), _getCurrentTimeOfDay(), 0);
+        bytes memory conditionData = _createConditionData(50e18, address(tokenA));
+        bytes memory actionData = _createSwapActionData(
+            address(tokenA),
+            address(tokenB),
+            SWAP_AMOUNT,
+            SWAP_AMOUNT - 1e18,
+            block.timestamp + 1 hours
+        );
+
+        vm.prank(address(vault1));
+        uint256 flowId = registry.createFlow(1, 100e18, triggerData, conditionData, actionData);
+
+        // Execute once
+        executor.executeFlow(flowId);
+
+        // Deactivate
+        vm.prank(address(vault1));
+        registry.updateFlowStatus(flowId, false);
+
+        // Verify data is preserved
+        IIntentRegistry.IntentFlow memory flow = registry.getFlow(flowId);
+        assertEq(flow.user, address(vault1));
+        assertEq(flow.triggerType, 1);
+        assertEq(flow.triggerValue, 100e18);
+        assertEq(flow.executionCount, 1);
+        assertGt(flow.lastExecutedAt, 0);
+        assertFalse(flow.active);
+    }
+}
