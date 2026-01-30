@@ -147,4 +147,74 @@ contract RateLimiterFuzzTest is Test {
         assertFalse(rateLimiter.canExecute(vault1, flowId));
         assertTrue(rateLimiter.canExecute(vault2, flowId));
     }
+
+    /**
+     * @notice Fuzz test: Last execution time is recorded correctly
+     * @param flowId Flow ID
+     * @param timestamp Warp timestamp
+     */
+    function testFuzz_LastExecutionTimeRecording(uint256 flowId, uint256 timestamp) public {
+        timestamp = bound(timestamp, block.timestamp, type(uint64).max);
+
+        rateLimiter.setExecutionLimitPerDay(vault, 10);
+        vm.warp(timestamp);
+
+        rateLimiter.recordExecution(vault, flowId);
+
+        assertEq(rateLimiter.getLastExecutionTime(vault, flowId), timestamp);
+    }
+
+    /**
+     * @notice Fuzz test: High frequency limits work correctly
+     * @param limit High frequency limit
+     */
+    function testFuzz_HighFrequencyLimits(uint256 limit) public {
+        limit = bound(limit, 100, 86400);
+
+        rateLimiter.setExecutionLimitPerDay(vault, limit);
+
+        uint256 interval = rateLimiter.getMinimumInterval(vault);
+
+        // Record and check rapid executions
+        rateLimiter.recordExecution(vault, 1);
+        assertFalse(rateLimiter.canExecute(vault, 1));
+
+        // Warp exactly to interval boundary
+        vm.warp(block.timestamp + interval);
+        assertTrue(rateLimiter.canExecute(vault, 1));
+    }
+
+    /**
+     * @notice Fuzz test: Multiple sequential executions
+     * @param limit Executions per day
+     * @param numExecutions Number of executions to perform
+     */
+    function testFuzz_SequentialExecutions(uint256 limit, uint256 numExecutions) public {
+        limit = bound(limit, 1, 24);
+        numExecutions = bound(numExecutions, 1, 10);
+        uint256 interval = 1 days / limit;
+
+        rateLimiter.setExecutionLimitPerDay(vault, limit);
+
+        for (uint256 i = 0; i < numExecutions; i++) {
+            // First or after interval should be allowed
+            assertTrue(rateLimiter.canExecute(vault, 1));
+
+            rateLimiter.recordExecution(vault, 1);
+
+            // Immediately after should be blocked
+            assertFalse(rateLimiter.canExecute(vault, 1));
+
+            // Warp to next interval
+            vm.warp(block.timestamp + interval);
+        }
+    }
+
+    /**
+     * @notice Fuzz test: Zero limit returns zero interval
+     */
+    function testFuzz_ZeroLimitZeroInterval() public {
+        // Don't set any limit
+        assertEq(rateLimiter.getMinimumInterval(vault), 0);
+    }
 }
